@@ -1,11 +1,27 @@
 import axios from 'axios';
+import { arrayBuffer } from 'stream/consumers';
 import PTCGConfig from '../utils/axios_ptcg_config';
 import DBConfig from '../utils/db_config';
+import AWSConfig from '../utils/aws_config';
+
+
+const aws = require('aws-sdk');
+aws.config.update(AWSConfig());
+
+// Set S3 endpoint to DigitalOcean Spaces
+const spacesEndpoint = new aws.Endpoint('nyc3.digitaloceanspaces.com');
+const s3 = new aws.S3({
+  endpoint: spacesEndpoint
+});
+
+
 
 const pgp = require('pg-promise')();
 const db = pgp(DBConfig());
 
 const AxiosInstance = axios.create(PTCGConfig()); // Create a new Axios Instance
+
+
 
 //PokemonTCG API Result Interface
 interface Set {
@@ -61,13 +77,13 @@ export default async function CollectSets(): Promise<boolean> {
 
                 let symbolImageObj = {
                     downloadFrom: set.images.symbol,
-                    uploadTo: `/images/${set.id}`,
+                    uploadTo: `images/${set.id}`,
                     filename: 'symbol.png'
                 }
 
                 let logoImageObj = {
                     downloadFrom: set.images.logo,
-                    uploadTo: `/images/${set.id}`,
+                    uploadTo: `images/${set.id}`,
                     filename: 'logo.png'
                 }
 
@@ -87,9 +103,39 @@ export default async function CollectSets(): Promise<boolean> {
             
             console.log(insert)
             /*** Download Images and Upload to S3 Bucket ***/
-            console.log(imageArray)
 
+            for (let i=0; i<imageArray.length; i++) {
+                let downloaded;
+                let put;
+                try {
+                    downloaded = await axios.get(encodeURI(imageArray[i].downloadFrom), {
+                        responseType: "arraybuffer"
+                    })
+                }
+                catch (err) {
+                    console.log(err)
+                }
 
+                try {
+                   put = await s3.putObject({
+
+                        'ACL': 'public-read',
+                        'Body': downloaded.data,
+                        'Bucket': 'pokefolio',
+                        'Key': `${imageArray[i].uploadTo}/${imageArray[i].filename}`,
+                        'ContentType': 'image/png'
+
+                    }
+                    // , 
+                    // function (err, data){
+                    //     console.log("ERROR!", imageArray[i].downloadFrom, err)
+                    //     console.log("ERRR", data)
+                    // }
+                    )
+                } catch (err) {
+                    console.log(err)
+                }
+            }
 
             state = true;
         }
@@ -98,9 +144,6 @@ export default async function CollectSets(): Promise<boolean> {
         console.log(e)
         state = false;
     }); 
-
-    /*** Parse Data ***/
-
 
 
     return state;
