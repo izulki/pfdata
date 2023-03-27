@@ -36,19 +36,60 @@ export default async function CollectCards(): Promise<boolean> {
         let setData = await AxiosInstance.get(`https://api.pokemontcg.io/v2/cards?q=set.id:${sets[i].setid}`);
         let pages = Math.ceil(setData.data.totalCount/250);
 
-        for (let j=1; j<=pages; j++) {
-            await AxiosInstance.get(`https://api.pokemontcg.io/v2/cards?q=set.id:${sets[i].setid}&page=${j}`).then(async (response) => {
-            console.log(response.data.data)
+        let cardsInsertArray = [];
+        let cardPriceInsertArray = [];
+        let cardImageArray = [];
 
+        /** Go through each page of the results to prepare insert Arrays **/
+        for (let j=1; j<=pages; j++) { 
+            let cards = await AxiosInstance.get(`https://api.pokemontcg.io/v2/cards?q=set.id:${sets[i].setid}&page=${j}`).then(async (response) => {
+                return response.data.data
+            })
 
-
-
-           
-            
-            
-            console.log(`${sets[i].setid}: Page ${j} of ${pages}`)
-        })
+            /** Go through each card of each page **/
+            cards.forEach(card => {
+                cardsInsertArray.push(
+                    {
+                        cardid: card.id,
+                        name: card.name,
+                        supertype: card.supertype,
+                        subtypes: card.subtypes,
+                        hp: card.hp,
+                        types: card.types,
+                        rules: card.rules,
+                        attacks: card.attacks,
+                        weaknesses: card.weaknesses,
+                        resistances: card.resistances,
+                        set: card.set,
+                        number: card.number,
+                        artist: card.artist,
+                        rarity: card.rarity,
+                        nationalPokedexNumbers: card.nationalPokedexNumbers,
+                        legalities: card.legalities,
+                        regulationMark: card.regulationMark,
+                        imageSmall: card.images.small,
+                        imageLarge: card.images.large,
+                        tcgplayer: card.tcgplayer,
+                        cardmarket: card.cardmarket
+                    }
+                )
+            })
         }
+
+        /** Insert Data into Cards Table  **/
+        //console.log(cardsInsertArray)
+
+        const cs = new pgp.helpers.ColumnSet(["cardid", "name", "supertype", "subtypes", "types", "hp", "rules", "attacks", "weaknesses", "resistances", "set", "number", "artist", "rarity", "nationalPokedexNumbers", "legalities", "regulationMark", "imageSmall", "imageLarge", "tcgplayer", "cardmarket"], {table: 'pfdata_cards'})
+        const onConflict = ' ON CONFLICT(cardid) DO UPDATE SET ' + cs.assignColumns({from: "EXCLUDED", skip: ['cardid']});
+        let query = pgp.helpers.insert(cardsInsertArray, cs) + onConflict;
+        let insert = await db.any(query);
+
+        console.log(insert)
+
+        /** Insert Data into Price Table  **/
+        /** Insert Data into S3 Bucket  **/
+
+
 
 
 
