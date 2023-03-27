@@ -54,21 +54,28 @@ export default async function CollectCards(): Promise<boolean> {
                         name: card.name,
                         supertype: card.supertype,
                         subtypes: card.subtypes,
+                        level: card.level,
                         hp: card.hp,
                         types: card.types,
+                        evolvesFrom: card.evolvesFrom,
+                        evolvesTo: card.evolvesTo,
                         rules: card.rules,
+                        ancientTrait: card.ancientTrait,
+                        abilities: card.abilities,
                         attacks: card.attacks,
                         weaknesses: card.weaknesses,
                         resistances: card.resistances,
+                        retreatCost: card.retreatCost,
+                        convertedRetreatCost: card.convertedRetreatCost,
                         set: card.set,
                         number: card.number,
                         artist: card.artist,
                         rarity: card.rarity,
+                        flavorText: card.flavorText,
                         nationalPokedexNumbers: card.nationalPokedexNumbers,
                         legalities: card.legalities,
                         regulationMark: card.regulationMark,
-                        imageSmall: card.images.small,
-                        imageLarge: card.images.large,
+                        images: card.images,
                         tcgplayer: card.tcgplayer,
                         cardmarket: card.cardmarket
                     }
@@ -79,7 +86,13 @@ export default async function CollectCards(): Promise<boolean> {
         /** Insert Data into Cards Table  **/
         //console.log(cardsInsertArray)
 
-        const cs = new pgp.helpers.ColumnSet(["cardid", "name", "supertype", "subtypes", "types", "hp", "rules", "attacks", "weaknesses", "resistances", "set", "number", "artist", "rarity", "nationalPokedexNumbers", "legalities", "regulationMark", "imageSmall", "imageLarge", "tcgplayer", "cardmarket"], {table: 'pfdata_cards'})
+        const cs = new pgp.helpers.ColumnSet([
+            "cardid", "name", "supertype", "subtypes", 
+            "level", "hp", "types", "evolvesFrom", "evolvesTo", 
+            "rules", "ancientTrait", "abilities", "attacks", 
+            "weaknesses", "resistances", "retreatCost", "convertedRetreatCost", 
+            "set", "number", "artist", "rarity", "flavorText", "nationalPokedexNumbers",
+            "legalities", "regulationMark", "images", "tcgplayer", "cardmarket"], {table: 'pfdata_cards'})
         const onConflict = ' ON CONFLICT(cardid) DO UPDATE SET ' + cs.assignColumns({from: "EXCLUDED", skip: ['cardid']});
         let query = pgp.helpers.insert(cardsInsertArray, cs) + onConflict;
         let insert = await db.any(query);
