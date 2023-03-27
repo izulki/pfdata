@@ -80,26 +80,48 @@ export default async function CollectCards(): Promise<boolean> {
                         cardmarket: card.cardmarket
                     }
                 )
+
+                cardPriceInsertArray.push(
+                    {
+                        cardid: card.id,
+                        source: "tcgplayer",
+                        prices: card.tcgplayer.prices,
+                        updatedsource: card.tcgplayer.updatedAt,
+                    }
+                )
             })
         }
 
         /** Insert Data into Cards Table  **/
         //console.log(cardsInsertArray)
 
-        const cs = new pgp.helpers.ColumnSet([
+        const cardsCs = new pgp.helpers.ColumnSet([
             "cardid", "name", "supertype", "subtypes", 
             "level", "hp", "types", "evolvesFrom", "evolvesTo", 
             "rules", "ancientTrait", "abilities", "attacks", 
             "weaknesses", "resistances", "retreatCost", "convertedRetreatCost", 
             "set", "number", "artist", "rarity", "flavorText", "nationalPokedexNumbers",
             "legalities", "regulationMark", "images", "tcgplayer", "cardmarket"], {table: 'pfdata_cards'})
-        const onConflict = ' ON CONFLICT(cardid) DO UPDATE SET ' + cs.assignColumns({from: "EXCLUDED", skip: ['cardid']});
-        let query = pgp.helpers.insert(cardsInsertArray, cs) + onConflict;
-        let insert = await db.any(query);
+        const cardsOnConflict = ' ON CONFLICT(cardid) DO UPDATE SET ' + cardsCs.assignColumns({from: "EXCLUDED", skip: ['cardid']});
+        let cardsQuery = pgp.helpers.insert(cardsInsertArray, cardsCs) + cardsOnConflict;
+        let insertCards = await db.any(cardsQuery);
+        console.log(insertCards)
 
-        console.log(insert)
 
         /** Insert Data into Price Table  **/
+        const priceCs = new pgp.helpers.ColumnSet([
+            "cardid", "source", "prices", "updatedsource", {
+                name: 'updated',
+                def: () => new Date() // default to the current Date/Time
+            }
+        ], {table: 'pfdata_cardprices'});
+        const pricesOnConflict = ' ON CONFLICT(cardid, source, updatedsource) DO NOTHING';
+
+
+        let priceQuery = pgp.helpers.insert(cardPriceInsertArray, priceCs) + pricesOnConflict;
+        let insertPrices = await db.any(priceQuery);
+        console.log(insertPrices);
+
         /** Insert Data into S3 Bucket  **/
 
 
