@@ -45,6 +45,7 @@ export default async function CollectCards(): Promise<boolean> {
                 return response.data.data
             })
 
+
             /** Go through each card of each page **/
             cards.forEach(card => {
                 cardsInsertArray.push(
@@ -74,7 +75,10 @@ export default async function CollectCards(): Promise<boolean> {
                         nationalPokedexNumbers: card.nationalPokedexNumbers,
                         legalities: card.legalities,
                         regulationMark: card.regulationMark,
-                        images: card.images,
+                        images: {
+                            small: `https://pokefolio.nyc3.cdn.digitaloceanspaces.com/images/${card.set.id}/${card.number}.png`,
+                            large: `https://pokefolio.nyc3.cdn.digitaloceanspaces.com/images/${card.set.id}/${card.number}_hires.png`
+                        },
                         tcgplayer: card.tcgplayer,
                         cardmarket: card.cardmarket
                     }
