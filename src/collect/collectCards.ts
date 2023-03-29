@@ -80,7 +80,8 @@ export default async function CollectCards(): Promise<boolean> {
                             large: `https://pokefolio.nyc3.cdn.digitaloceanspaces.com/images/${card.set.id}/${card.number}_hires.png`
                         },
                         tcgplayer: card.tcgplayer,
-                        cardmarket: card.cardmarket
+                        cardmarket: card.cardmarket,
+                        setid: card.set.id
                     }
                 )
 
@@ -119,60 +120,59 @@ export default async function CollectCards(): Promise<boolean> {
             "rules", "ancientTrait", "abilities", "attacks", 
             "weaknesses", "resistances", "retreatCost", "convertedRetreatCost", 
             "set", "number", "artist", "rarity", "flavorText", "nationalPokedexNumbers",
-            "legalities", "regulationMark", "images", "tcgplayer", "cardmarket"], {table: 'pfdata_cards'})
+            "legalities", "regulationMark", "images", "tcgplayer", "cardmarket", "setid"], {table: 'pfdata_cards'})
         const cardsOnConflict = ' ON CONFLICT(cardid) DO UPDATE SET ' + cardsCs.assignColumns({from: "EXCLUDED", skip: ['cardid']});
         let cardsQuery = pgp.helpers.insert(cardsInsertArray, cardsCs) + cardsOnConflict;
         let insertCards = await db.any(cardsQuery);
         console.log(insertCards)
 
-
         /** Insert Data into Price Table  **/
-        const priceCs = new pgp.helpers.ColumnSet([
-            "cardid", "source", "prices", "updatedsource", {
-                name: 'updated',
-                def: () => new Date() // default to the current Date/Time
-            }
-        ], {table: 'pfdata_cardprices'});
-        const pricesOnConflict = ' ON CONFLICT(cardid, source, updatedsource) DO NOTHING';
+        // const priceCs = new pgp.helpers.ColumnSet([
+        //     "cardid", "source", "prices", "updatedsource", {
+        //         name: 'updated',
+        //         def: () => new Date() // default to the current Date/Time
+        //     }
+        // ], {table: 'pfdata_cardprices'});
+        // const pricesOnConflict = ' ON CONFLICT(cardid, source, updatedsource) DO NOTHING';
 
 
-        let priceQuery = pgp.helpers.insert(cardPriceInsertArray, priceCs) + pricesOnConflict;
-        let insertPrices = await db.any(priceQuery);
-        console.log(insertPrices);
+        // let priceQuery = pgp.helpers.insert(cardPriceInsertArray, priceCs) + pricesOnConflict;
+        // let insertPrices = await db.any(priceQuery);
+        // console.log(insertPrices);
 
         /** Insert Images into S3 Bucket  **/
-        for (let k=0; k<cardImageArray.length; k++) {
-            console.log("Downloading", cardImageArray[k].downloadFrom)
-            let downloaded;
-            let put;
-            try {
-                downloaded = await axios.get(encodeURI(cardImageArray[k].downloadFrom), {
-                    responseType: "arraybuffer"
-                })
-            }
-            catch (err) {
-                console.log(err)
-            }
+        // for (let k=0; k<cardImageArray.length; k++) {
+        //     console.log("Downloading", cardImageArray[k].downloadFrom)
+        //     let downloaded;
+        //     let put;
+        //     try {
+        //         downloaded = await axios.get(encodeURI(cardImageArray[k].downloadFrom), {
+        //             responseType: "arraybuffer"
+        //         })
+        //     }
+        //     catch (err) {
+        //         console.log(err)
+        //     }
 
-            console.log("Uploading", cardImageArray[k].uploadTo)
-            try {
-               put = await s3.putObject({
+        //     console.log("Uploading", cardImageArray[k].uploadTo)
+        //     try {
+        //        put = await s3.putObject({
 
-                    'ACL': 'public-read',
-                    'Body': downloaded.data,
-                    'Bucket': 'pokefolio',
-                    'Key': `${cardImageArray[k].uploadTo}/${cardImageArray[k].filename}`,
-                    'ContentType': 'image/png'
+        //             'ACL': 'public-read',
+        //             'Body': downloaded.data,
+        //             'Bucket': 'pokefolio',
+        //             'Key': `${cardImageArray[k].uploadTo}/${cardImageArray[k].filename}`,
+        //             'ContentType': 'image/png'
 
-                }, (err, data) => {
-                    console.log(err)
-                    console.log(data)
-                }
-                )
-            } catch (err) {
-                console.log(err)
-            }
-        }
+        //         }, (err, data) => {
+        //             console.log(err)
+        //             console.log(data)
+        //         }
+        //         )
+        //     } catch (err) {
+        //         console.log(err)
+        //     }
+        // }
     }
 
     status = true;
