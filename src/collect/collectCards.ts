@@ -85,10 +85,25 @@ export default async function CollectCards(): Promise<boolean> {
                     {
                         cardid: card.id,
                         source: "tcgplayer",
-                        prices: card.tcgplayer.prices,
-                        updatedsource: card.tcgplayer.updatedAt,
+                        prices: "tcgplayer" in card ? card.tcgplayer.prices : null,
+                        updatedsource: "tcgplayer" in card ? card.tcgplayer.updatedAt : null,
                     }
                 )
+
+                let imageObj = {
+                    downloadFrom: card.images.small,
+                    uploadTo: `images/${card.set.id}`,
+                    filename: `${card.number}.png`
+                }
+
+                let imageHiresObj = {
+                    downloadFrom: card.images.large,
+                    uploadTo: `images/${card.set.id}`,
+                    filename: `${card.number}_hires.png`
+                }
+
+                cardImageArray.push(imageObj)
+                cardImageArray.push(imageHiresObj)
             })
         }
 
@@ -122,13 +137,38 @@ export default async function CollectCards(): Promise<boolean> {
         let insertPrices = await db.any(priceQuery);
         console.log(insertPrices);
 
-        /** Insert Data into S3 Bucket  **/
+        /** Insert Images into S3 Bucket  **/
+        for (let k=0; k<cardImageArray.length; k++) {
+            console.log("Downloading", cardImageArray[k].downloadFrom)
+            let downloaded;
+            let put;
+            try {
+                downloaded = await axios.get(encodeURI(cardImageArray[k].downloadFrom), {
+                    responseType: "arraybuffer"
+                })
+            }
+            catch (err) {
+                console.log(err)
+            }
 
+            console.log("Uploading", cardImageArray[k].uploadTo)
+            try {
+               put = await s3.putObject({
 
+                    'ACL': 'public-read',
+                    'Body': downloaded.data,
+                    'Bucket': 'pokefolio',
+                    'Key': `${cardImageArray[k].uploadTo}/${cardImageArray[k].filename}`,
+                    'ContentType': 'image/png'
 
-
-
+                }
+                )
+            } catch (err) {
+                console.log(err)
+            }
+        }
     }
 
+    status = true;
     return status;
 }

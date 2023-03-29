@@ -49,6 +49,7 @@ export default async function CollectSets(): Promise<boolean> {
     let responseSets: Array<Set>;
 
     /*** Send HTTP Request and get Set data ***/
+    console.log("CollectSets: Collecting Sets from API")
     await AxiosInstance.get("https://api.pokemontcg.io/v2/sets")
     .then( 
         async (response) => {
@@ -94,6 +95,8 @@ export default async function CollectSets(): Promise<boolean> {
 
 
             /*** Insert Into Database ***/
+            console.log("CollectSets: Insert Into Database")
+
             const cs = new pgp.helpers.ColumnSet(["setid", "name", "printedtotal", "total", "legalities", "ptcgocode", "releaseddate", "updatedat", "imgsymbol", "imglogo", "series"], {table: 'pfdata_sets'})
             const onConflict = ' ON CONFLICT(setid) DO UPDATE SET ' + cs.assignColumns({from: "EXCLUDED", skip: ['setid']});
             //console.log(insertArray)
@@ -103,6 +106,7 @@ export default async function CollectSets(): Promise<boolean> {
             console.log(insert)
             /*** Download Images and Upload to S3 Bucket ***/
 
+            console.log("CollectSets: Uploading Images")
             for (let i=0; i<imageArray.length; i++) {
                 let downloaded;
                 let put;
@@ -115,6 +119,7 @@ export default async function CollectSets(): Promise<boolean> {
                     console.log(err)
                 }
 
+                console.log(`Uploading to: ${imageArray[i].uploadTo}/${imageArray[i].filename}`)
                 try {
                    put = await s3.putObject({
 
@@ -125,11 +130,6 @@ export default async function CollectSets(): Promise<boolean> {
                         'ContentType': 'image/png'
 
                     }
-                    // , 
-                    // function (err, data){
-                    //     console.log("ERROR!", imageArray[i].downloadFrom, err)
-                    //     console.log("ERRR", data)
-                    // }
                     )
                 } catch (err) {
                     console.log(err)
