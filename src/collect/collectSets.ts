@@ -10,6 +10,7 @@ aws.config.update(AWSConfig());
 // Set S3 endpoint to DigitalOcean Spaces
 const spacesEndpoint = new aws.Endpoint('nyc3.digitaloceanspaces.com');
 const s3 = new aws.S3({
+  forcePathStyle: false,
   endpoint: spacesEndpoint
 });
 
@@ -122,15 +123,20 @@ export default async function CollectSets(): Promise<boolean> {
                 console.log(`Uploading to: ${imageArray[i].uploadTo}/${imageArray[i].filename}`)
                 try {
                    put = await s3.putObject({
-
                         'ACL': 'public-read',
                         'Body': downloaded.data,
                         'Bucket': 'pokefolio',
                         'Key': `${imageArray[i].uploadTo}/${imageArray[i].filename}`,
                         'ContentType': 'image/png'
-
+                    }, (err, data) => {
+                        console.log(err)
+                        console.log(data)
                     }
+
+
+
                     )
+                   // console.log(put.response)
                 } catch (err) {
                     console.log(err)
                 }

@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { arrayBuffer } from 'stream/consumers';
 import PTCGConfig from '../utils/axios_ptcg_config';
 import DBConfig from '../utils/db_config';
 import AWSConfig from '../utils/aws_config';
@@ -161,6 +160,9 @@ export default async function CollectCards(): Promise<boolean> {
                     'Key': `${cardImageArray[k].uploadTo}/${cardImageArray[k].filename}`,
                     'ContentType': 'image/png'
 
+                }, (err, data) => {
+                    console.log(err)
+                    console.log(data)
                 }
                 )
             } catch (err) {
