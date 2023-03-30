@@ -127,18 +127,17 @@ export default async function CollectCards(): Promise<boolean> {
         console.log(insertCards)
 
         /** Insert Data into Price Table  **/
-        // const priceCs = new pgp.helpers.ColumnSet([
-        //     "cardid", "source", "prices", "updatedsource", {
-        //         name: 'updated',
-        //         def: () => new Date() // default to the current Date/Time
-        //     }
-        // ], {table: 'pfdata_cardprices'});
-        // const pricesOnConflict = ' ON CONFLICT(cardid, source, updatedsource) DO NOTHING';
+        const priceCs = new pgp.helpers.ColumnSet([
+            "cardid", "source", "prices", "updatedsource", {
+                name: 'updated',
+                def: () => new Date() // default to the current Date/Time
+            }
+        ], {table: 'pfdata_cardprices'});
+        const pricesOnConflict = ' ON CONFLICT(cardid, source, updatedsource) DO NOTHING';
 
-
-        // let priceQuery = pgp.helpers.insert(cardPriceInsertArray, priceCs) + pricesOnConflict;
-        // let insertPrices = await db.any(priceQuery);
-        // console.log(insertPrices);
+        let priceQuery = pgp.helpers.insert(cardPriceInsertArray, priceCs) + pricesOnConflict;
+        let insertPrices = await db.any(priceQuery);
+        console.log(insertPrices);
 
         /** Insert Images into S3 Bucket  **/
         // for (let k=0; k<cardImageArray.length; k++) {
