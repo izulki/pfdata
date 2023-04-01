@@ -44,7 +44,7 @@ interface setImage {
 
 
 
-export default async function CollectSets(): Promise<boolean> {
+export default async function CollectSets(metaFlag: boolean, imageFlag: boolean): Promise<boolean> {
 
     let state: boolean = false;
     let responseSets: Array<Set>;
@@ -92,56 +92,55 @@ export default async function CollectSets(): Promise<boolean> {
                 imageArray.push(logoImageObj);
             });
 
-    
-
-
             /*** Insert Into Database ***/
-            console.log("CollectSets: Insert Into Database")
+            if (metaFlag) {
+                console.log("CollectSets: Insert Into Database")
 
-            const cs = new pgp.helpers.ColumnSet(["setid", "name", "printedtotal", "total", "legalities", "ptcgocode", "releaseddate", "updatedat", "imgsymbol", "imglogo", "series"], {table: 'pfdata_sets'})
-            const onConflict = ' ON CONFLICT(setid) DO UPDATE SET ' + cs.assignColumns({from: "EXCLUDED", skip: ['setid']});
-            //console.log(insertArray)
-            let query = pgp.helpers.insert(insertArray, cs) + onConflict;
-            let insert = await db.any(query);
-            
-            console.log(insert)
-            /*** Download Images and Upload to S3 Bucket ***/
-
-            console.log("CollectSets: Uploading Images")
-            for (let i=0; i<imageArray.length; i++) {
-                let downloaded;
-                let put;
-                try {
-                    downloaded = await axios.get(encodeURI(imageArray[i].downloadFrom), {
-                        responseType: "arraybuffer"
-                    })
-                }
-                catch (err) {
-                    console.log(err)
-                }
-
-                console.log(`Uploading to: ${imageArray[i].uploadTo}/${imageArray[i].filename}`)
-                try {
-                   put = await s3.putObject({
-                        'ACL': 'public-read',
-                        'Body': downloaded.data,
-                        'Bucket': 'pokefolio',
-                        'Key': `${imageArray[i].uploadTo}/${imageArray[i].filename}`,
-                        'ContentType': 'image/png'
-                    }, (err, data) => {
-                        console.log(err)
-                        console.log(data)
-                    }
-
-
-
-                    )
-                   // console.log(put.response)
-                } catch (err) {
-                    console.log(err)
-                }
+                const cs = new pgp.helpers.ColumnSet(["setid", "name", "printedtotal", "total", "legalities", "ptcgocode", "releaseddate", "updatedat", "imgsymbol", "imglogo", "series"], {table: 'pfdata_sets'})
+                const onConflict = ' ON CONFLICT(setid) DO UPDATE SET ' + cs.assignColumns({from: "EXCLUDED", skip: ['setid']});
+                //console.log(insertArray)
+                let query = pgp.helpers.insert(insertArray, cs) + onConflict;
+                let insert = await db.any(query);
+                
+                console.log("CollectSets: inserted meta: ", insert)
             }
 
+            /*** Download Images and Upload to S3 Bucket ***/
+            if (imageFlag) {
+                console.log("CollectSets: Uploading Images")
+                for (let i=0; i<imageArray.length; i++) {
+                    let downloaded;
+                    let put;
+                    try {
+                        downloaded = await axios.get(encodeURI(imageArray[i].downloadFrom), {
+                            responseType: "arraybuffer"
+                        })
+                    }
+                    catch (err) {
+                        console.log("CollectSets: image download error", err)
+                    }
+    
+                    //console.log(`Uploading to: ${imageArray[i].uploadTo}/${imageArray[i].filename}`)
+                    try {
+                       put = await s3.putObject({
+                            'ACL': 'public-read',
+                            'Body': downloaded.data,
+                            'Bucket': 'pokefolio',
+                            'Key': `${imageArray[i].uploadTo}/${imageArray[i].filename}`,
+                            'ContentType': 'image/png'
+                        }, (err, data) => {
+                            if (err) {
+                                console.log('CollectSets image upload error: ', `${imageArray[i].uploadTo}/${imageArray[i].filename}`)
+                            }
+                            //console.log("CollectSets image ", err)
+                            //console.log(data)
+                        })
+                    } catch (err) {
+                        console.log("CollectSets image upload error", err)
+                        console.log(err)
+                    }
+                }
+            }
             state = true;
         }
     )
