@@ -1,6 +1,5 @@
 import axios from 'axios';
 import PTCGConfig from '../utils/axios_ptcg_config';
-import DBConfig from '../utils/db_config';
 import AWSConfig from '../utils/aws_config';
 
 
@@ -17,7 +16,6 @@ const s3 = new aws.S3({
 
 
 const pgp = require('pg-promise')();
-const db = pgp(DBConfig());
 
 const AxiosInstance = axios.create(PTCGConfig()); // Create a new Axios Instance
 
@@ -44,7 +42,7 @@ interface setImage {
 
 
 
-export default async function CollectSets(metaFlag: boolean, imageFlag: boolean): Promise<boolean> {
+export default async function CollectSets(db: any, metaFlag: boolean, imageFlag: boolean): Promise<boolean> {
 
     let state: boolean = false;
     let responseSets: Array<Set>;
@@ -117,7 +115,7 @@ export default async function CollectSets(metaFlag: boolean, imageFlag: boolean)
                         })
                     }
                     catch (err) {
-                        console.log("CollectSets: image download error", err)
+                        console.log("CollectSets: image download error ", err)
                     }
     
                     //console.log(`Uploading to: ${imageArray[i].uploadTo}/${imageArray[i].filename}`)
@@ -136,8 +134,7 @@ export default async function CollectSets(metaFlag: boolean, imageFlag: boolean)
                             //console.log(data)
                         })
                     } catch (err) {
-                        console.log("CollectSets image upload error", err)
-                        console.log(err)
+                        console.log("CollectSets image upload error ", err)
                     }
                 }
             }

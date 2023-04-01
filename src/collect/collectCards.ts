@@ -1,6 +1,5 @@
 import axios from 'axios';
 import PTCGConfig from '../utils/axios_ptcg_config';
-import DBConfig from '../utils/db_config';
 import AWSConfig from '../utils/aws_config';
 
 
@@ -15,23 +14,19 @@ const s3 = new aws.S3({
 
 // Database Instance
 const pgp = require('pg-promise')();
-const db = pgp(DBConfig());
 
 //Axios Instance
 const AxiosInstance = axios.create(PTCGConfig()); // Create a new Axios Instance
 
-
-
-
-export default async function CollectCards(): Promise<boolean> {
+export default async function CollectCards(db: any, metaFlag: boolean, imageFlag: boolean): Promise<boolean> {
     let status = false;
 
     /*** Get All Sets From Database ***/
-    let sets = await db.any("SELECT setid FROM pfdata_sets", [true]);
+    let sets = await db.any("SELECT setid, id FROM pfdata_sets ORDER BY id DESC", [true]);
 
     /*** Get Cards for each set ***/
     for (let i=0; i<sets.length; i++) {
-        console.log(`Processing ${sets[i].setid}`)
+        console.log(`CollectCards Processing ${sets[i].setid}`)
         let setData = await AxiosInstance.get(`https://api.pokemontcg.io/v2/cards?q=set.id:${sets[i].setid}`);
         let pages = Math.ceil(setData.data.totalCount/250);
 
@@ -113,20 +108,23 @@ export default async function CollectCards(): Promise<boolean> {
 
         /** Insert Data into Cards Table  **/
         //console.log(cardsInsertArray)
-
-        const cardsCs = new pgp.helpers.ColumnSet([
-            "cardid", "name", "supertype", "subtypes", 
-            "level", "hp", "types", "evolvesFrom", "evolvesTo", 
-            "rules", "ancientTrait", "abilities", "attacks", 
-            "weaknesses", "resistances", "retreatCost", "convertedRetreatCost", 
-            "set", "number", "artist", "rarity", "flavorText", "nationalPokedexNumbers",
-            "legalities", "regulationMark", "images", "tcgplayer", "cardmarket", "setid"], {table: 'pfdata_cards'})
-        const cardsOnConflict = ' ON CONFLICT(cardid) DO UPDATE SET ' + cardsCs.assignColumns({from: "EXCLUDED", skip: ['cardid']});
-        let cardsQuery = pgp.helpers.insert(cardsInsertArray, cardsCs) + cardsOnConflict;
-        let insertCards = await db.any(cardsQuery);
-        console.log(insertCards)
+        if (metaFlag) {
+            console.log("CollectCards: Insert Into Database")
+            const cardsCs = new pgp.helpers.ColumnSet([
+                "cardid", "name", "supertype", "subtypes", 
+                "level", "hp", "types", "evolvesFrom", "evolvesTo", 
+                "rules", "ancientTrait", "abilities", "attacks", 
+                "weaknesses", "resistances", "retreatCost", "convertedRetreatCost", 
+                "set", "number", "artist", "rarity", "flavorText", "nationalPokedexNumbers",
+                "legalities", "regulationMark", "images", "tcgplayer", "cardmarket", "setid"], {table: 'pfdata_cards'})
+            const cardsOnConflict = ' ON CONFLICT(cardid) DO UPDATE SET ' + cardsCs.assignColumns({from: "EXCLUDED", skip: ['cardid']});
+            let cardsQuery = pgp.helpers.insert(cardsInsertArray, cardsCs) + cardsOnConflict;
+            let insertCards = await db.any(cardsQuery);
+            console.log("CollectCards: inserted meta: ", insertCards)
+        }
 
         /** Insert Data into Price Table  **/
+        console.log("CollectCards: Insert PRICE Into Database")
         const priceCs = new pgp.helpers.ColumnSet([
             "cardid", "source", "prices", "updatedsource", {
                 name: 'updated',
@@ -137,43 +135,43 @@ export default async function CollectCards(): Promise<boolean> {
 
         let priceQuery = pgp.helpers.insert(cardPriceInsertArray, priceCs) + pricesOnConflict;
         let insertPrices = await db.any(priceQuery);
-        console.log(insertPrices);
+        console.log("CollectCards: inserted prices: ", insertPrices)
 
         /** Insert Images into S3 Bucket  **/
-        // for (let k=0; k<cardImageArray.length; k++) {
-        //     console.log("Downloading", cardImageArray[k].downloadFrom)
-        //     let downloaded;
-        //     let put;
-        //     try {
-        //         downloaded = await axios.get(encodeURI(cardImageArray[k].downloadFrom), {
-        //             responseType: "arraybuffer"
-        //         })
-        //     }
-        //     catch (err) {
-        //         console.log(err)
-        //     }
-
-        //     console.log("Uploading", cardImageArray[k].uploadTo)
-        //     try {
-        //        put = await s3.putObject({
-
-        //             'ACL': 'public-read',
-        //             'Body': downloaded.data,
-        //             'Bucket': 'pokefolio',
-        //             'Key': `${cardImageArray[k].uploadTo}/${cardImageArray[k].filename}`,
-        //             'ContentType': 'image/png'
-
-        //         }, (err, data) => {
-        //             console.log(err)
-        //             console.log(data)
-        //         }
-        //         )
-        //     } catch (err) {
-        //         console.log(err)
-        //     }
-        // }
+        if (imageFlag) {
+            console.log("CollectCards: Uploading Images")
+            for (let k=0; k<cardImageArray.length; k++) {
+                let downloaded;
+                let put;
+                try {
+                    downloaded = await axios.get(encodeURI(cardImageArray[k].downloadFrom), {
+                        responseType: "arraybuffer"
+                    })
+                }
+                catch (err) {
+                    console.log("CollectCards: image download error ", cardImageArray[k].downloadFrom, err)
+                }
+                try {
+                   put = await s3.putObject({
+    
+                        'ACL': 'public-read',
+                        'Body': downloaded.data,
+                        'Bucket': 'pokefolio',
+                        'Key': `${cardImageArray[k].uploadTo}/${cardImageArray[k].filename}`,
+                        'ContentType': 'image/png'
+    
+                    }, 
+                    (err, data) => {
+                        if (err) {
+                            console.log('CollectCards image upload error: ', `${cardImageArray[i].uploadTo}/${cardImageArray[i].filename}`)
+                        }                
+                    })
+                } catch (err) {
+                    console.log("CollectCards image upload error ", err)
+                }
+            }
+        }
     }
-
     status = true;
     return status;
 }
