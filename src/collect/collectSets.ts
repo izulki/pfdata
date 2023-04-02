@@ -1,7 +1,12 @@
 import axios from 'axios';
 import PTCGConfig from '../utils/axios_ptcg_config';
 import AWSConfig from '../utils/aws_config';
+import { String } from 'aws-sdk/clients/cloudhsm';
 
+/** Logging Setup */
+import { logToDBStart } from "../utils/logger";
+const { createLogger, format, transports, config } = require('winston');
+const { combine, timestamp, label, json } = format;
 
 const aws = require('aws-sdk');
 aws.config.update(AWSConfig());
@@ -13,13 +18,8 @@ const s3 = new aws.S3({
   endpoint: spacesEndpoint
 });
 
-
-
-const pgp = require('pg-promise')();
-
+const pgp = require('pg-promise')(); //User Postgres Helpers
 const AxiosInstance = axios.create(PTCGConfig()); // Create a new Axios Instance
-
-
 
 //PokemonTCG API Result Interface
 interface Set {
@@ -40,23 +40,47 @@ interface setImage {
     logo: string;
 }
 
+interface collectSetsResponse {
+    state: boolean,
+    errors: number,
+    log: number
+}
 
-
-export default async function CollectSets(db: any, metaFlag: boolean, imageFlag: boolean): Promise<boolean> {
-
+export default async function CollectSets(db: any, metaFlag: boolean, imageFlag: boolean, method: string): Promise<collectSetsResponse> {
     let state: boolean = false;
-    let responseSets: Array<Set>;
+    let responseSets: Array<Set> = [];
+    let errors: number = 0;
+
+    /*** Initialize Logging ***/
+    let logid = await logToDBStart(db, "collectSets", method); //Send to start log to DB, return log id.
+    console.log(logid)
+    const logger = createLogger({
+        levels: config.syslog.levels,
+        format: combine(
+            label({ label: 'collectSets' }),
+            timestamp(),
+            json()
+          )  
+         ,
+        transports: [
+          new transports.File({ filename: `logs/collectSets/${logid}.log`}),
+        ],
+    });
+    logger.info(" --- STARTING --- ")
+
+    logger.info("Fetching Sets from API")
+
 
     /*** Send HTTP Request and get Set data ***/
-    console.log("CollectSets: Collecting Sets from API")
     await AxiosInstance.get("https://api.pokemontcg.io/v2/sets")
     .then( 
         async (response) => {
             responseSets = response.data.data;
 
              /*** Parse Data and Create Insert / Update Array ***/
-             let insertArray = [];
-             let imageArray = [];
+             let insertArray = []; //Array used to collect meta data, later used for bulk insert.
+             let imageArray = []; //Array used to collect image meta data, later used to insert into s3 bucket.
+
             responseSets.forEach(set => {
                 insertArray.push(
                     {
@@ -89,23 +113,29 @@ export default async function CollectSets(db: any, metaFlag: boolean, imageFlag:
                 imageArray.push(symbolImageObj);
                 imageArray.push(logoImageObj);
             });
+            logger.info("Fetching Sets from API - DONE")
 
             /*** Insert Into Database ***/
             if (metaFlag) {
-                console.log("CollectSets: Insert Into Database")
+                logger.info("Inserting metadata to database")
 
                 const cs = new pgp.helpers.ColumnSet(["setid", "name", "printedtotal", "total", "legalities", "ptcgocode", "releaseddate", "updatedat", "imgsymbol", "imglogo", "series"], {table: 'pfdata_sets'})
                 const onConflict = ' ON CONFLICT(setid) DO UPDATE SET ' + cs.assignColumns({from: "EXCLUDED", skip: ['setid']});
-                //console.log(insertArray)
                 let query = pgp.helpers.insert(insertArray, cs) + onConflict;
-                let insert = await db.any(query);
-                
-                console.log("CollectSets: inserted meta: ", insert)
+                let insert;
+
+                try {
+                    insert = await db.any(query);
+                } catch (err) {
+                    logger.error("Error inserting metadata to database", err);
+                    errors++;
+                }
+                logger.info("Inserting metadata to database - DONE")
             }
 
             /*** Download Images and Upload to S3 Bucket ***/
             if (imageFlag) {
-                console.log("CollectSets: Uploading Images")
+                logger.info("Uploading Images to Spaces")
                 for (let i=0; i<imageArray.length; i++) {
                     let downloaded;
                     let put;
@@ -115,10 +145,13 @@ export default async function CollectSets(db: any, metaFlag: boolean, imageFlag:
                         })
                     }
                     catch (err) {
-                        console.log("CollectSets: image download error ", err)
+                        logger.error(`Failed to download image: ${imageArray[i].downloadFrom}`, err);
+                        logger.error(`Skipping upload for current image: ${imageArray[i].downloadFrom}`, err);
+
+                        errors++;
+                        continue;
                     }
     
-                    //console.log(`Uploading to: ${imageArray[i].uploadTo}/${imageArray[i].filename}`)
                     try {
                        put = await s3.putObject({
                             'ACL': 'public-read',
@@ -128,24 +161,44 @@ export default async function CollectSets(db: any, metaFlag: boolean, imageFlag:
                             'ContentType': 'image/png'
                         }, (err, data) => {
                             if (err) {
-                                console.log('CollectSets image upload error: ', `${imageArray[i].uploadTo}/${imageArray[i].filename}`)
+                                logger.error('Failed to put image into spaces: ', `${imageArray[i].uploadTo}/${imageArray[i].filename}`);
+                                errors++;
                             }
-                            //console.log("CollectSets image ", err)
-                            //console.log(data)
                         })
                     } catch (err) {
-                        console.log("CollectSets image upload error ", err)
+                        logger.error('Failed to put image into spaces: ', `${imageArray[i].uploadTo}/${imageArray[i].filename}`);
+                        errors++;
                     }
                 }
+                logger.info("Uploading Images to Spaces - DONE")
             }
             state = true;
         }
     )
-    .catch(e => { // Error handling
-        console.log(e)
+    .catch(e => { // Error getting set data from API.
+        logger.error("Error getting set data from API", e);
+        errors++;
         state = false;
     }); 
 
+    logger.info(" --- COMPLETE --- ")
 
-    return state;
+
+    return new Promise<collectSetsResponse>((resolve, reject) => {
+        if (state) { 
+            resolve (
+                {
+                    state: state,
+                    errors: errors,
+                    log: logid
+                })
+        } else {
+            reject (
+                {
+                    state: state,
+                    errors: errors,
+                    log: logid
+                })
+        }  
+    })
 }
