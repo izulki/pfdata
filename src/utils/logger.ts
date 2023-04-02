@@ -25,3 +25,19 @@ export async function logToDBStart(db: any, caller: string, method: string): Pro
     }
 }
 
+export async function logToDBEnd(db: any, id: number, status: string, errors: number, logpath: string): Promise<boolean> { //Return the ID number of log record
+    const cs = new pgp.helpers.ColumnSet(["timeend", "status", "errorcount", "logpath"], {table: 'pfdata_logs_collect'})
+    let query = await pgp.helpers.update(
+        {
+            timeend: new Date().toISOString(),
+            status: status,
+            errorcount: errors, //ERROR, COMPLETE
+            logpath: logpath
+        }
+        , cs) + pgp.as.format('WHERE id = ${id}', {id});;
+
+    await db.any(query)
+
+    return true;
+}
+

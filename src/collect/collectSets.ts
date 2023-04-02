@@ -4,7 +4,7 @@ import AWSConfig from '../utils/aws_config';
 import { String } from 'aws-sdk/clients/cloudhsm';
 
 /** Logging Setup */
-import { logToDBStart } from "../utils/logger";
+import { logToDBStart, logToDBEnd } from "../utils/logger";
 const { createLogger, format, transports, config } = require('winston');
 const { combine, timestamp, label, json } = format;
 
@@ -53,7 +53,6 @@ export default async function CollectSets(db: any, metaFlag: boolean, imageFlag:
 
     /*** Initialize Logging ***/
     let logid = await logToDBStart(db, "collectSets", method); //Send to start log to DB, return log id.
-    console.log(logid)
     const logger = createLogger({
         levels: config.syslog.levels,
         format: combine(
@@ -69,8 +68,6 @@ export default async function CollectSets(db: any, metaFlag: boolean, imageFlag:
     logger.info(" --- STARTING --- ")
 
     logger.info("Fetching Sets from API")
-
-
     /*** Send HTTP Request and get Set data ***/
     await AxiosInstance.get("https://api.pokemontcg.io/v2/sets")
     .then( 
@@ -182,23 +179,21 @@ export default async function CollectSets(db: any, metaFlag: boolean, imageFlag:
     }); 
 
     logger.info(" --- COMPLETE --- ")
+    logToDBEnd(db, logid, "COMPLETED", errors, `/logs/collectSets/${logid}.log`)
 
-
-    return new Promise<collectSetsResponse>((resolve, reject) => {
-        if (state) { 
-            resolve (
-                {
-                    state: state,
-                    errors: errors,
-                    log: logid
-                })
-        } else {
-            reject (
-                {
-                    state: state,
-                    errors: errors,
-                    log: logid
-                })
-        }  
-    })
+    if (state) { 
+        return Promise.resolve (
+            {
+                state: state,
+                errors: errors,
+                log: logid
+            })
+    } else {
+        return Promise.reject (
+             {
+                state: state,
+                errors: errors,
+                log: logid
+            })
+    } 
 }

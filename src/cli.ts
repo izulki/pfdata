@@ -2,7 +2,6 @@ var argv = require('minimist')(process.argv.slice(2));
 import CollectSets from "./collect/collectSets";
 
 /** --- START OF LOGGING SETUP --- **/
-import { logToDBStart } from "./utils/logger";
 const { createLogger, format, transports, config } = require('winston');
 const { combine, timestamp, label, json } = format;
 
