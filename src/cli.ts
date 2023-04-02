@@ -46,6 +46,7 @@ async function cli() {
                 logger.info(`Starting collectPrice function`)
                 state = await CollectPrice(db, "", "MANUAL")
                 logger.info(`Finished collectPrice results: ${JSON.stringify(state)}`)
+                break;
             default:
                 console.log('No such command')
         }
