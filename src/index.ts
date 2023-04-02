@@ -1,5 +1,9 @@
+const schedule = require('node-schedule');
+
+
 import CollectCards from "./collect/collectCards";
 import CollectSets from "./collect/collectSets";
+import CollectPrice from "./collect/collectPrice";
 
 
 
@@ -25,7 +29,7 @@ const logger = createLogger({
 });
 
 
-async function main() {
+async function main1() {
     logger.info(`Main function started`)
 
 
@@ -53,6 +57,14 @@ async function main() {
     // let collectedCards = await CollectCards(db, CardMetaFlag, CardImageFlag);
     // console.log(`${today.toUTCString()}`," - ", ` COMPLETED CARD COLLECTION: Result: ${collectedCards}`)
 
+}
+
+async function main() {
+    // const job = schedule.scheduleJob('* * * * *', function(fireDate){
+    //     console.log('This job was supposed to run at ' + fireDate + ', but actually ran at ' + new Date());
+    //   });
+
+    await CollectPrice(db, "", "SYSTEM");
 }
 
 main();

@@ -1,5 +1,6 @@
 var argv = require('minimist')(process.argv.slice(2));
 import CollectSets from "./collect/collectSets";
+import CollectPrice from "./collect/collectPrice";
 
 /** --- START OF LOGGING SETUP --- **/
 const { createLogger, format, transports, config } = require('winston');
@@ -13,6 +14,7 @@ const logger = createLogger({
         json()
       ),
     transports: [
+      new transports.Console(),
       new transports.File({ filename: 'logs/cli.log'}),
     ],
 });
@@ -34,13 +36,16 @@ async function cli() {
     try {
         meta = argv.meta;
         image = argv.image;
-
         switch (collect) {
             case 'collectSets':
-                    logger.info(`Starting collectSets function meta: ${meta}, image: ${image}`)
-                    state = await CollectSets(db, meta, image, "MANUAL")
-                    logger.info(`Finished collectSets results: ${JSON.stringify(state)}`)
+                logger.info(`Starting collectSets function meta: ${meta}, image: ${image}`)
+                state = await CollectSets(db, meta, image, "MANUAL")
+                logger.info(`Finished collectSets results: ${JSON.stringify(state)}`)
                 break;
+            case 'collectPrice':
+                logger.info(`Starting collectPrice function`)
+                state = await CollectPrice(db, "", "MANUAL")
+                logger.info(`Finished collectPrice results: ${JSON.stringify(state)}`)
             default:
                 console.log('No such command')
         }

@@ -1,7 +1,6 @@
 import axios from 'axios';
 import PTCGConfig from '../utils/axios_ptcg_config';
 import AWSConfig from '../utils/aws_config';
-import { String } from 'aws-sdk/clients/cloudhsm';
 
 /** Logging Setup */
 import { logToDBStart, logToDBEnd } from "../utils/logger";
