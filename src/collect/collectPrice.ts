@@ -52,8 +52,8 @@ export default async function CollectPrice(db: any, set: string, method: string)
                 let setData = await AxiosInstance.get(`https://api.pokemontcg.io/v2/cards?q=set.id:${sets[i].setid}`);
                 pages = Math.ceil(setData.data.totalCount/250);       
             } catch (err) {
-                logger.err(`Error Fetching https://api.pokemontcg.io/v2/cards?q=set.id:${sets[i].setid}`);
-                logger.err(err);
+                logger.error(`Error Fetching https://api.pokemontcg.io/v2/cards?q=set.id:${sets[i].setid}`);
+                logger.error(err);
                 errors++;
             }
 
@@ -65,7 +65,7 @@ export default async function CollectPrice(db: any, set: string, method: string)
                     let response = await AxiosInstance.get(`https://api.pokemontcg.io/v2/cards?q=set.id:${sets[i].setid}&page=${j}`);
                     cards = response.data.data
                 } catch (err) {
-                    logger.err(`https://api.pokemontcg.io/v2/cards?q=set.id:${sets[i].setid}&page=${j}`);
+                    logger.error(`https://api.pokemontcg.io/v2/cards?q=set.id:${sets[i].setid}&page=${j}`);
                     errors++;
                 }
 

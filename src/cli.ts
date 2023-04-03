@@ -22,6 +22,7 @@ const logger = createLogger({
 
 /** --- START OF DB SETUP --- **/
 import DBConfig from './utils/db_config';
+import CollectCards from "./collect/collectCards";
 const pgp = require('pg-promise')();
 const db = pgp(DBConfig());
 /** --- END OF DB SETUP --- **/
@@ -46,6 +47,11 @@ async function cli() {
                 logger.info(`Starting collectPrice function`)
                 state = await CollectPrice(db, "", "MANUAL")
                 logger.info(`Finished collectPrice results: ${JSON.stringify(state)}`)
+                break;
+            case 'collectCards':
+                logger.info(`Starting collectCards function`)
+                state = await CollectCards(db, meta, image, "", "MANUAL")
+                logger.info(`Finished collectCards results: ${JSON.stringify(state)}`)
                 break;
             default:
                 console.log('No such command')
