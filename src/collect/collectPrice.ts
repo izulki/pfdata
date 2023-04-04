@@ -46,6 +46,9 @@ export default async function CollectPrice(db: any, set: string, method: string)
         for (let i=0; i<sets.length; i++) {
             let cardPriceInsertArray = [];
 
+            let setPrice = 0;
+            let updatedSetSource = "";
+
             //Calcualte amount of pages to iterate
             let pages = 1;
             try {
@@ -80,7 +83,33 @@ export default async function CollectPrice(db: any, set: string, method: string)
                             updatedsource: "tcgplayer" in card ? card.tcgplayer.updatedAt : null,
                         }
                     )
+
+                    /** --- SET PRICE DETERMINED BY ALL VARIATIONS OF TCGPLAYER MARKET VALUE --- */
+                    if (card.tcgplayer?.prices) { //Add to set
+                    for (const key in card.tcgplayer.prices) { //Loop through to find market value of each version
+                        setPrice = setPrice + card.tcgplayer.prices[key].market;
+                        updatedSetSource = card.tcgplayer.updatedAt;
+                    }
+                   }
                 })
+            }
+
+            /** Insert Data into Set Price Table  **/
+            logger.info(`Insert Set Price into Database`)
+            const setPriceCs = new pgp.helpers.ColumnSet([
+                "setid", "price", "updatedsource", "source", {
+                    name: 'updated',
+                    def: () => new Date() // default to the current Date/Time
+                }
+            ], {table: 'pfdata_setprices'});
+            const setPriceOnConflict = ' ON CONFLICT(setid, source, updatedsource) DO NOTHING';
+            let setPriceQuery = pgp.helpers.insert([{setid: sets[i].setid, price: setPrice, updatedsource: updatedSetSource, source: "tcgplayer"}], setPriceCs) + setPriceOnConflict;
+            let insertSetPrice = [];
+            try {
+                insertSetPrice = await db.any(setPriceQuery);
+            } catch (err) {
+                logger.error(`Error inserting set price into database`)
+                errors++;
             }
 
 
@@ -102,6 +131,7 @@ export default async function CollectPrice(db: any, set: string, method: string)
                 logger.error(`Error inserting prices into database`)
                 errors++;
             }
+
         }
 
     } else { //Get Specific set
