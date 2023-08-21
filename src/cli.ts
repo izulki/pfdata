@@ -56,7 +56,9 @@ async function cli() {
                 logger.info(`Finished collectCards results: ${JSON.stringify(state)}`)
                 break;
             case 'collectAnalysis':
-                state = await CollectAnalysis(db);
+                logger.info(`Starting CollectAnalysis function`)
+                state = await CollectAnalysis(db, "MANUAL");
+                logger.info(`Finished CollectAnalysis results: ${JSON.stringify(state)}`)
                 break;
             default:
                 console.log('No such command')
