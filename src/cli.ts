@@ -1,6 +1,8 @@
 var argv = require('minimist')(process.argv.slice(2));
 import CollectSets from "./collect/collectSets";
 import CollectPrice from "./collect/collectPrice";
+import CollectCards from "./collect/collectCards";
+import CollectAnalysis from "./collect/collectAnalysis";
 
 /** --- START OF LOGGING SETUP --- **/
 const { createLogger, format, transports, config } = require('winston');
@@ -22,7 +24,7 @@ const logger = createLogger({
 
 /** --- START OF DB SETUP --- **/
 import DBConfig from './utils/db_config';
-import CollectCards from "./collect/collectCards";
+
 const pgp = require('pg-promise')();
 const db = pgp(DBConfig());
 /** --- END OF DB SETUP --- **/
@@ -52,6 +54,9 @@ async function cli() {
                 logger.info(`Starting collectCards function`)
                 state = await CollectCards(db, meta, image, "", "MANUAL")
                 logger.info(`Finished collectCards results: ${JSON.stringify(state)}`)
+                break;
+            case 'collectAnalysis':
+                state = await CollectAnalysis(db);
                 break;
             default:
                 console.log('No such command')
