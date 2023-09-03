@@ -128,7 +128,7 @@ from (
 left join 
 (
     select *, date_trunc('day', cp.updated) from pfdata_cardprices cp
-    where date_trunc('day', now() - interval '3 days') = date_trunc('day', cp.updated)
+    where date_trunc('day', now() - interval '1 day') = date_trunc('day', cp.updated)
     and prices is not null
 ) t2
 on t1.cardid = t2.cardid

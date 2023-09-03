@@ -3,6 +3,7 @@ import CollectSets from "./collect/collectSets";
 import CollectPrice from "./collect/collectPrice";
 import CollectCards from "./collect/collectCards";
 import CollectAnalysis from "./collect/collectAnalysis";
+import CollectSprites from "./collect/collectSprites";
 
 /** --- START OF LOGGING SETUP --- **/
 const { createLogger, format, transports, config } = require('winston');
@@ -59,6 +60,9 @@ async function cli() {
                 logger.info(`Starting CollectAnalysis function`)
                 state = await CollectAnalysis(db, "MANUAL");
                 logger.info(`Finished CollectAnalysis results: ${JSON.stringify(state)}`)
+                break;
+            case 'collectSprites':
+                await CollectSprites();
                 break;
             default:
                 console.log('No such command')
