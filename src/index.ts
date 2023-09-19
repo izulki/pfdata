@@ -47,6 +47,8 @@ async function main() {
         logger.info(` --- SYSTEM ANALYSIS COLLECTION COMPLETED ---`);
       });
 
+      job();
+
 }
 main();
 
