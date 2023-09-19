@@ -74,6 +74,8 @@ export default async function CollectPrice(db: any, set: string, method: string)
                 }
 
 
+
+
                 logger.info(`Prepare Insert Array with Price Data`)
                 cards.forEach(card => {
                     cardPriceInsertArray.push(
@@ -87,18 +89,20 @@ export default async function CollectPrice(db: any, set: string, method: string)
 
                     /** --- SET PRICE DETERMINED BY ALL VARIATIONS OF TCGPLAYER MARKET VALUE --- */
                     if (card.tcgplayer?.prices) { //Add to set
-                    for (const key in card.tcgplayer.prices) { //Loop through to find market value of each version
-                        cardVariantsInsertArray.push({cardid: card.id, variant: key})//Save each variant
-                        setPrice = setPrice + card.tcgplayer.prices[key].market;
-                        updatedSetSource = card.tcgplayer.updatedAt;
-                    }
+                        for (const key in card.tcgplayer.prices) { //Loop through to find market value of each version
+                            cardVariantsInsertArray.push({cardid: card.id, variant: key})//Save each variant
+                            setPrice = setPrice + card.tcgplayer.prices[key].market;
+                            updatedSetSource = card.tcgplayer.updatedAt;
+                        }
+                   } else {
+                        cardVariantsInsertArray.push({cardid: card.id, variant: "unknown"})//Save each variant
                    }
                 })
             }
 
             /** Insert Data into Variants Table  **/
             //cardVariantsInsertArray
-            logger.info(`Insert Set Price into Database`)
+            logger.info(`Insert Variants into Database`)
             const cardVariantsCs = new pgp.helpers.ColumnSet([
                 "cardid", "variant"
             ], {table: 'pfdata_variants'});
@@ -108,10 +112,12 @@ export default async function CollectPrice(db: any, set: string, method: string)
 
             try {
                 insertVariants = await db.any(cardVariantsQuery);
+                
             } catch (err) {
                 logger.error(`Error inserting variants`)
                 errors++;
             }
+
 
             /** Insert Data into Set Price Table  **/
             logger.info(`Insert Set Price into Database`)
@@ -131,7 +137,6 @@ export default async function CollectPrice(db: any, set: string, method: string)
                 errors++;
             }
 
-
             /** Insert Data into Price Table  **/
             logger.info(`Inserting Prices into Database`)
             const priceCs = new pgp.helpers.ColumnSet([
@@ -150,6 +155,8 @@ export default async function CollectPrice(db: any, set: string, method: string)
                 logger.error(`Error inserting prices into database`)
                 errors++;
             }
+
+
 
         }
 
