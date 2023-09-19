@@ -45,6 +45,7 @@ export default async function CollectPrice(db: any, set: string, method: string)
         let sets = await db.any("SELECT setid, id FROM pfdata_sets ORDER BY id DESC", [true]);
         for (let i=0; i<sets.length; i++) {
             let cardPriceInsertArray = [];
+            let cardVariantsInsertArray = [];
 
             let setPrice = 0;
             let updatedSetSource = "";
@@ -87,11 +88,29 @@ export default async function CollectPrice(db: any, set: string, method: string)
                     /** --- SET PRICE DETERMINED BY ALL VARIATIONS OF TCGPLAYER MARKET VALUE --- */
                     if (card.tcgplayer?.prices) { //Add to set
                     for (const key in card.tcgplayer.prices) { //Loop through to find market value of each version
+                        cardVariantsInsertArray.push({cardid: card.id, variant: key})//Save each variant
                         setPrice = setPrice + card.tcgplayer.prices[key].market;
                         updatedSetSource = card.tcgplayer.updatedAt;
                     }
                    }
                 })
+            }
+
+            /** Insert Data into Variants Table  **/
+            //cardVariantsInsertArray
+            logger.info(`Insert Set Price into Database`)
+            const cardVariantsCs = new pgp.helpers.ColumnSet([
+                "cardid", "variant"
+            ], {table: 'pfdata_variants'});
+            const cardVariantsOnConflict = ' ON CONFLICT(cardid, variant) DO NOTHING';
+            let cardVariantsQuery = pgp.helpers.insert(cardVariantsInsertArray, cardVariantsCs) + cardVariantsOnConflict;
+            let insertVariants = [];
+
+            try {
+                insertVariants = await db.any(cardVariantsQuery);
+            } catch (err) {
+                logger.error(`Error inserting variants`)
+                errors++;
             }
 
             /** Insert Data into Set Price Table  **/
