@@ -1,9 +1,9 @@
 const schedule = require('node-schedule');
 
-import CollectCards from "./collect/collectCards";
-import CollectSets from "./collect/collectSets";
 import CollectPrice from "./collect/collectPrice";
 import CollectAnalysis from "./collect/collectAnalysis";
+import CollectAllPortfolioValues from "./collect/collectAllPortfolioValues";
+
 
 
 import DBConfig from './utils/db_config';
@@ -45,7 +45,15 @@ async function main() {
         let collectedAnalysis = await CollectAnalysis(db, "SYSTEM")
         logger.info(collectedAnalysis);
         logger.info(` --- SYSTEM ANALYSIS COLLECTION COMPLETED ---`);
+
+        logger.info(` --- SYSTEM PORTFOLIO SNAPSHOT STARTED ---`);
+        logger.info('This job was supposed to run at ' + fireDate + ', but actually ran at ' + new Date());
+        let collectedSnapshot = await CollectAllPortfolioValues(db, "SYSTEM")
+        logger.info(collectedSnapshot);
+        logger.info(` --- SYSTEM PORTOFLIO SNAPSHOT COMPLETED ---`);
       });
+      var list = schedule.scheduledJobs;
+      console.log("List of jobs", list)
 }
 main();
 

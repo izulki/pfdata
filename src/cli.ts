@@ -4,6 +4,7 @@ import CollectPrice from "./collect/collectPrice";
 import CollectCards from "./collect/collectCards";
 import CollectAnalysis from "./collect/collectAnalysis";
 import CollectSprites from "./collect/collectSprites";
+import CollectAllPortfolioValues from "./collect/collectAllPortfolioValues";
 
 /** --- START OF LOGGING SETUP --- **/
 const { createLogger, format, transports, config } = require('winston');
@@ -64,6 +65,9 @@ async function cli() {
             case 'collectSprites':
                 await CollectSprites();
                 break;
+            case 'collectAllPortfolioValues':
+                await CollectAllPortfolioValues(db, "MANUAL");
+                break
             default:
                 console.log('No such command')
         }
