@@ -31,29 +31,41 @@ const logger = createLogger({
 
 async function main() {
     logger.info(`Main function started`)
-
     /** RUN COLLECTION EVERYDAY AT 1AM **/
     const job = schedule.scheduleJob('0 10 * * *', async function(fireDate){
-        logger.info(` --- SYSTEM PRICE COLLECTION STARTED ---`);
-        logger.info('This job was supposed to run at ' + fireDate + ', but actually ran at ' + new Date());
-        let collectedPrice = await CollectPrice(db, "", "SYSTEM")
-        logger.info(collectedPrice);
-        logger.info(` --- SYSTEM PRICE COLLECTION COMPLETED ---`);
+        try {
+          logger.info(` --- SYSTEM PRICE COLLECTION STARTED ---`);
+          logger.info('This job was supposed to run at ' + fireDate + ', but actually ran at ' + new Date());
+          let collectedPrice = await CollectPrice(db, "", "SYSTEM")
+          logger.info(collectedPrice);
+          logger.info(` --- SYSTEM PRICE COLLECTION COMPLETED ---`);
+        } catch (e) {
+          logger.info(` --- SYSTEM PRICE COLLECTION ERROR ---`);
+          logger.info(e);
+        }
 
-        logger.info(` --- SYSTEM ANALYSIS COLLECTION STARTED ---`);
-        logger.info('This job was supposed to run at ' + fireDate + ', but actually ran at ' + new Date());
-        let collectedAnalysis = await CollectAnalysis(db, "SYSTEM")
-        logger.info(collectedAnalysis);
-        logger.info(` --- SYSTEM ANALYSIS COLLECTION COMPLETED ---`);
+        try {
+          logger.info(` --- SYSTEM ANALYSIS COLLECTION STARTED ---`);
+          logger.info('This job was supposed to run at ' + fireDate + ', but actually ran at ' + new Date());
+          let collectedAnalysis = await CollectAnalysis(db, "SYSTEM")
+          logger.info(collectedAnalysis);
+          logger.info(` --- SYSTEM ANALYSIS COLLECTION COMPLETED ---`);
+        } catch (e) {
+          logger.info(` --- SYSTEM ANALYSIS COLLECTION ERROR ---`);
+          logger.info(e);
+        }
 
-        logger.info(` --- SYSTEM PORTFOLIO SNAPSHOT STARTED ---`);
-        logger.info('This job was supposed to run at ' + fireDate + ', but actually ran at ' + new Date());
-        let collectedSnapshot = await CollectAllPortfolioValues(db, "SYSTEM")
-        logger.info(collectedSnapshot);
-        logger.info(` --- SYSTEM PORTOFLIO SNAPSHOT COMPLETED ---`);
+        try {
+          logger.info(` --- SYSTEM PORTFOLIO SNAPSHOT STARTED ---`);
+          logger.info('This job was supposed to run at ' + fireDate + ', but actually ran at ' + new Date());
+          let collectedSnapshot = await CollectAllPortfolioValues(db, "SYSTEM")
+          logger.info(collectedSnapshot);
+          logger.info(` --- SYSTEM PORTOFLIO SNAPSHOT COMPLETED ---`);
+        } catch (e) {
+          logger.info(` --- SYSTEM PORTOFLIO SNAPSHOT ERROR ---`);
+          logger.info(e);
+        }
       });
-      var list = schedule.scheduledJobs;
-      console.log("List of jobs", list)
 }
 main();
 
