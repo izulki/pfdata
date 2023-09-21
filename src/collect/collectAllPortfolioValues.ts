@@ -47,6 +47,7 @@ export default async function CollectAllPortfolioValues(db: any, method: string)
             select * from pf_inventory pi2 
             left join pfdata_cardprices pc on pc.cardid = pi2.cardid 
             where userid = '${users[i].userid}'
+            AND pi2.status = true
             AND updated = (SELECT max(cp1.updated) FROM pfdata_cardprices cp1 where cp1.cardid = pc.cardid)
         `
         let cards = await db.any(query, [true]);
@@ -56,7 +57,6 @@ export default async function CollectAllPortfolioValues(db: any, method: string)
                 try {   
                     price = cards[j].prices[`${cards[j].variant}`]['market']
                 } catch (e) {
-                    console.log('error', cards[j])
                 }
                 total = total + price;
             }
@@ -74,6 +74,7 @@ export default async function CollectAllPortfolioValues(db: any, method: string)
     }
 
     logger.info("Upload Portfolio Snapshots")
+    console.log(portfolioSnapshots)
 
     const portfolioSnapshotCs = new pgp.helpers.ColumnSet([
         "userid", "value", "date", {
