@@ -74,7 +74,6 @@ export default async function CollectAllPortfolioValues(db: any, method: string)
     }
 
     logger.info("Upload Portfolio Snapshots")
-    console.log(portfolioSnapshots)
 
     const portfolioSnapshotCs = new pgp.helpers.ColumnSet([
         "userid", "value", "date", {
