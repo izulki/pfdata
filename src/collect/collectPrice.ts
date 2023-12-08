@@ -46,6 +46,7 @@ export default async function CollectPrice(db: any, set: string, method: string)
         for (let i=0; i<sets.length; i++) {
             let cardPriceInsertArray = [];
             let cardVariantsInsertArray = [];
+            let quickPriceInsertArray = [];
 
             let setPrice = 0;
             let updatedSetSource = "";
@@ -73,10 +74,28 @@ export default async function CollectPrice(db: any, set: string, method: string)
                     errors++;
                 }
 
-
-
-
                 logger.info(`Prepare Insert Array with Price Data`)
+                cards.forEach(card => {
+                    //Quick Price Parsing
+                    try {
+                        Object.keys(card.tcgplayer.prices).forEach(function(k){
+                            try {
+                                quickPriceInsertArray.push(
+                                    {
+                                        cardid: card.id,
+                                        variant: k,
+                                        source: "tcgplayer",
+                                        price: card.tcgplayer.prices[k]["market"],
+                                        updatedsource: "tcgplayer" in card ? card.tcgplayer.updatedAt : null,
+                                    }
+                                )
+                            } catch (e) {
+                            }
+                        });
+                    } catch (e) {
+                    }
+                })
+
                 cards.forEach(card => {
                     cardPriceInsertArray.push(
                         {
@@ -101,7 +120,7 @@ export default async function CollectPrice(db: any, set: string, method: string)
             }
 
             /** Insert Data into Variants Table  **/
-            //cardVariantsInsertArray
+            cardVariantsInsertArray
             logger.info(`Insert Variants into Database`)
             const cardVariantsCs = new pgp.helpers.ColumnSet([
                 "cardid", "variant"
@@ -135,6 +154,32 @@ export default async function CollectPrice(db: any, set: string, method: string)
             } catch (err) {
                 logger.error(`Error inserting set price into database`)
                 errors++;
+            }
+
+            /** Insert Data into Quick Price Table  **/
+            logger.info(`Inserting Quick Prices into Database`)
+            const quickPriceCs = new pgp.helpers.ColumnSet([
+                "cardid", "variant", "source", "price", "updatedsource", {
+                    name: 'updated',
+                    def: () => new Date() // default to the current Date/Time
+                }
+            ], {table: 'pfdata_quickprice'});
+            const quickPricesOnConflict = ' ON CONFLICT(cardid, variant, updatedsource) DO NOTHING';
+
+            //console.log("generating using", quickPriceInsertArray)
+            
+            
+            if (quickPriceInsertArray.length) {
+                let quickPriceQuery = pgp.helpers.insert(quickPriceInsertArray, quickPriceCs) + quickPricesOnConflict;
+                //console.log(quickPriceQuery)
+                let insertQuickPrices = [];
+                try {
+                    insertQuickPrices = await db.any(quickPriceQuery);
+                } catch (err) {
+                    console.log(err);
+                    logger.error(`Error inserting prices into database`)
+                    errors++;
+                }
             }
 
             /** Insert Data into Price Table  **/
