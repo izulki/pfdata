@@ -33,65 +33,28 @@ export default async function CollectAllPortfolioValues(db: any, method: string)
 
     logger.info(" --- STARTING --- ")
 
-    //Get cards and its prices from today and three days ago.
-    logger.info("Fetch Distinct Users who have Inventory")
-    let users = await db.any(distinctUsersQuery, [true]);
-
-    logger.info("Go through each user and cards and find total, store in array")
-
-    let portfolioSnapshots = [];
-
-    for (let i=0; i<users.length; i++) {
-        let total = 0;
-        let query = `
-            select * from pf_inventory pi2 
-            left join pfdata_cardprices pc on pc.cardid = pi2.cardid 
-            where userid = '${users[i].userid}'
-            AND pi2.status = true
-            AND updated = (SELECT max(cp1.updated) FROM pfdata_cardprices cp1 where cp1.cardid = pc.cardid)
-        `
-        let cards = await db.any(query, [true]);
-        for (let j=0; j<cards.length; j++) {
-            if (cards[j].prices) {
-                let price = 0;
-                try {   
-                    price = cards[j].prices[`${cards[j].variant}`]['market']
-                } catch (e) {
-                }
-                total = total + price;
-            }
-        }
-
-        portfolioSnapshots.push(
-            {
-                userid: users[i].userid,
-                value: total,
-                date: dayjs().format('YYYY/MM/DD')
-            }
-        )
-
-        
-    }
-
-    logger.info("Upload Portfolio Snapshots")
-
-    const portfolioSnapshotCs = new pgp.helpers.ColumnSet([
-        "userid", "value", "date", {
-            name: 'timestamp',
-            def: () => new Date() // default to the current Date/Time
-        }
-    ], {table: 'pf_portfoliosnapshots'});
-
-    const onConflict = ' ON CONFLICT(userid, date) DO NOTHING';
-
-    let insertQuery = pgp.helpers.insert(portfolioSnapshots, portfolioSnapshotCs) + onConflict;
-    let insertSnapshot = [];
-    try {
-        insertSnapshot = await db.any(insertQuery);
-    } catch (err) {
-        logger.error(`Error inserting prices into database`)
-        errors++;
-    }
+    let query = `
+        insert INTO user_metrics_log (userid, total_cards, total_unique_cards, unique_cards_with_variant, total_value, log_date)
+        SELECT 
+            uc.userid,
+            COUNT(*) AS total_cards,
+            COUNT(DISTINCT uc.cardid) AS total_unique_cards,
+            COUNT(DISTINCT CONCAT(uc.cardid, '-', uc.variant)) AS unique_cards_with_variant,
+            SUM(
+                (SELECT price 
+                FROM pfdata_quickprice 
+                WHERE cardid = uc.cardid 
+                AND variant = uc.variant 
+                order BY updated DESC 
+                LIMIT 1)
+            ) AS total_value,
+            CURRENT_DATE AS log_date  -- Use CURRENT_DATE to set the log_date
+            from pf_users_card_inventory uc
+        group BY 
+            uc.userid
+        ON CONFLICT (userid, log_date) DO NOTHING;
+    `
+    await db.any(query, [true]);
 
     logToDBEnd(db, logid, "COMPLETED", errors, `/logs/AllPortfolioValues/${logid}.log`)
     logger.info(" --- COMPLETED --- ")
@@ -111,7 +74,3 @@ export default async function CollectAllPortfolioValues(db: any, method: string)
     }
 
 }
-
-let distinctUsersQuery = `
-    select distinct(userid) from pf_inventory pi2 
-`
