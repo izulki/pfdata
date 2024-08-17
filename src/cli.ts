@@ -5,6 +5,8 @@ import CollectCards from "./collect/collectCards";
 import CollectAnalysis from "./collect/collectAnalysis";
 import CollectSprites from "./collect/collectSprites";
 import CollectAllPortfolioValues from "./collect/collectAllPortfolioValues";
+import CollectSimilarityVectors from "./collect/collectSimilarityVectors";
+
 
 /** --- START OF LOGGING SETUP --- **/
 const { createLogger, format, transports, config } = require('winston');
@@ -16,10 +18,10 @@ const logger = createLogger({
         label({ label: 'cli' }),
         timestamp(),
         json()
-      ),
+    ),
     transports: [
-      new transports.Console(),
-      new transports.File({ filename: 'logs/cli.log'}),
+        new transports.Console(),
+        new transports.File({ filename: 'logs/cli.log' }),
     ],
 });
 /** --- END OF LOGGING SETUP --- **/
@@ -64,6 +66,9 @@ async function cli() {
                 break;
             case 'collectSprites':
                 await CollectSprites();
+                break;
+            case 'collectSimilarityVectors':
+                await CollectSimilarityVectors(db, "MANUAL");
                 break;
             case 'collectAllPortfolioValues':
                 await CollectAllPortfolioValues(db, "MANUAL");
