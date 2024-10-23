@@ -28,6 +28,7 @@ const logger = createLogger({
 
 /** --- START OF DB SETUP --- **/
 import DBConfig from './utils/db_config';
+import ExteralMapper from "./collect/externalMapper";
 
 const pgp = require('pg-promise')();
 const db = pgp(DBConfig());
@@ -39,10 +40,12 @@ async function cli() {
     let meta: boolean;
     let image: boolean;
     let state = {};
+    let set = argv.set;
 
     try {
         meta = argv.meta;
         image = argv.image;
+
         switch (collect) {
             case 'collectSets':
                 logger.info(`Starting collectSets function meta: ${meta}, image: ${image}`)
@@ -72,6 +75,9 @@ async function cli() {
                 break;
             case 'collectAllPortfolioValues':
                 await CollectAllPortfolioValues(db, "MANUAL");
+                break
+            case 'ExternalMapper':
+                await ExteralMapper(db, set);
                 break
             default:
                 console.log('No such command')

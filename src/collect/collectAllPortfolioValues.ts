@@ -50,6 +50,8 @@ export default async function CollectAllPortfolioValues(db: any, method: string)
             ) AS total_value,
             CURRENT_DATE AS log_date  -- Use CURRENT_DATE to set the log_date
             from pf_users_card_inventory uc
+            LEFT JOIN pf_users_card_inventory_details pucid ON pucid.inventory_id = uc.id 
+            WHERE pucid.status < 100 or pucid.status is null
         group BY 
             uc.userid
         ON CONFLICT (userid, log_date) DO NOTHING;
