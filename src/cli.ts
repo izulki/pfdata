@@ -29,6 +29,7 @@ const logger = createLogger({
 /** --- START OF DB SETUP --- **/
 import DBConfig from './utils/db_config';
 import ExteralMapper from "./collect/externalMapper";
+import CollectCurrencyRates from "./collect/collectCurrencyRates";
 
 const pgp = require('pg-promise')();
 const db = pgp(DBConfig());
@@ -78,6 +79,9 @@ async function cli() {
                 break
             case 'ExternalMapper':
                 await ExteralMapper(db, set);
+                break
+            case 'collectCurrencyRates':
+                await CollectCurrencyRates(db, "MANUAL");
                 break
             default:
                 console.log('No such command')
