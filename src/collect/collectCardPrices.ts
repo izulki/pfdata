@@ -1,5 +1,7 @@
 const pgp = require('pg-promise')(); //User Postgres Helpers
 import axios from 'axios';
+require('dotenv').config();
+
 
 interface PriceRecord {
     cardid: string;
@@ -68,7 +70,7 @@ export async function collectCardPrices(db: any): Promise<void> {
                 try {
                     const response = await axios.get(url, {
                         headers: {
-                            'Authorization': 'Bearer u-qthXeR4sfmDlyqm0PonsVbLRoUZPCPxg22VonYzL7SdH-f9rROOjdv9P4Spc6jNLRvmevizmbadHnlO6Nf6Svqvpcp-CrezrUXbLicMPirNzBrSAtmJnyZrraI0ZUYGO7YpzzZ5UCkpZhMl5t5KMfZbmyLveUbef-JiCNUJ12dzxNPr9Xtb4R6yuEIlQF2zaVzd22vnuS6u2aCgsEZlnraCiif617UWQU3zkXEaqrC9_OT9y0km0sp95Tb0S0RtOm8LEnTY67d7DyEMATKfAbyr0lIcXTraxjly6vuImKuzXNMUGMrCorZwsCV3Y2XjFQyXg'
+                            'Authorization': `Bearer ${process.env.TCGP_API}`
                         }
                     });
                     //console.log(`Received ${response.data.results.length} price results from TCGPlayer`);
@@ -124,7 +126,7 @@ export async function collectCardPrices(db: any): Promise<void> {
                     await new Promise(resolve => setTimeout(resolve, 100));
 
                 } catch (error) {
-                    //console.error(`Error details:`, error.response?.data || error.message);
+                    console.error(`Error details:`, error.response?.data || error.message);
                     //console.error(`Error processing chunk starting with product ${chunk[0]} for set ${set.setid}`);
                 }
             }
