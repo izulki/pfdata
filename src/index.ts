@@ -13,6 +13,7 @@ const db = pgp(DBConfig());
 //Logging
 import { logToDBStart } from "./utils/logger";
 import CollectCurrencyRates from "./collect/collectCurrencyRates";
+import { collectCardPrices } from "./collect/collectCardPrices";
 const { createLogger, format, transports, config } = require('winston');
 const { combine, timestamp, label, json } = format;
 
@@ -42,6 +43,16 @@ async function main() {
       logger.info(` --- SYSTEM CURRENCY RATE COLLECTION COMPLETED ---`);
     } catch (e) {
       logger.info(` --- SYSTEM CURRENCY RATE COLLECTION ERROR ---`);
+      logger.info(e);
+    }
+
+    try {
+      logger.info(` --- NEW SYSTEM PRICE COLLECTION STARTED ---`);
+      logger.info('This job was supposed to run at ' + fireDate + ', but actually ran at ' + new Date());
+      await collectCardPrices(db)
+      logger.info(` --- NEW SYSTEM PRICE COLLECTION COMPLETED ---`);
+    } catch (e) {
+      logger.info(` --- NEW SYSTEM PRICE COLLECTION ERROR ---`);
       logger.info(e);
     }
 

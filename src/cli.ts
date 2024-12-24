@@ -30,6 +30,8 @@ const logger = createLogger({
 import DBConfig from './utils/db_config';
 import ExteralMapper from "./collect/externalMapper";
 import CollectCurrencyRates from "./collect/collectCurrencyRates";
+import InitializePriceMapTable from "./collect/initializePriceMapTable";
+import { collectCardPrices } from "./collect/collectCardPrices";
 
 const pgp = require('pg-promise')();
 const db = pgp(DBConfig());
@@ -83,6 +85,12 @@ async function cli() {
             case 'collectCurrencyRates':
                 await CollectCurrencyRates(db, "MANUAL");
                 break
+            case 'initPriceMap':
+                    await InitializePriceMapTable(db, "MANUAL");
+                    break
+            case 'collectCardPrices':
+                    await collectCardPrices(db);
+                    break
             default:
                 console.log('No such command')
         }
