@@ -185,3 +185,12 @@ export default async function InitializePriceMapTable(db: any, method: string): 
 
     return errors === 0 ? Promise.resolve(result) : Promise.reject(result);
 }
+
+/*
+normal => Normal
+holofoil => Holofoil
+reverseHolofoil => Reverse Holofoil
+1stEdition => 1st Edition
+unlimited => Unlimited
+unlimitedHolofoil => Unlimited Holofoil
+1stEditionHolofoil => 1st Edition Holofoil  */

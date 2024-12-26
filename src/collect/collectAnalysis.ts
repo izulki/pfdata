@@ -79,7 +79,7 @@ FROM latest_date ld,
 JOIN pf_cards_price_history p  
   USING (cardid, variant)
 WHERE t.updatedsource::date = ld.date
-  AND p.updatedsource::date = ld.date - INTERVAL '3 days'
+  AND p.updatedsource::date = ld.date - INTERVAL '1 days'
   AND t.price != p.price;
 
 -- Then do the update in a transaction if we have data
