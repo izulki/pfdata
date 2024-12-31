@@ -64,23 +64,90 @@ WITH latest_date AS (
   WHERE updatedsource IS NOT NULL
   ORDER BY updatedsource DESC
   LIMIT 1
+),
+current_prices AS (
+  SELECT t.cardid, t.variant, t.price, t.updatedsource
+  FROM pf_cards_price_history t, latest_date ld
+  WHERE t.updatedsource::date = ld.date
+),
+interval_prices AS (
+  SELECT DISTINCT ON (t.cardid, t.variant, interval_type)
+    t.cardid,
+    t.variant,
+    ph.price as interval_price,
+    ph.updatedsource::date as interval_date,
+    interval_type
+  FROM current_prices t
+  CROSS JOIN (VALUES 
+    ('1w', INTERVAL '7 days'),
+    ('1m', INTERVAL '1 month'),
+    ('3m', INTERVAL '3 months'),
+    ('6m', INTERVAL '6 months'),
+    ('1y', INTERVAL '1 year')
+  ) as intervals(interval_type, interval_length)
+  LEFT JOIN pf_cards_price_history ph
+    ON t.cardid = ph.cardid
+    AND t.variant = ph.variant
+    AND ph.updatedsource::date <= t.updatedsource::date - interval_length
+    AND ph.updatedsource::date > t.updatedsource::date - (interval_length + INTERVAL '7 days')
+  ORDER BY t.cardid, t.variant, interval_type, ph.updatedsource::date DESC
 )
 SELECT 
+  -- Existing columns
   t.cardid,
   t.variant,
   t.price as current_price,
-  p.price as previous_price,
-  ((t.price - p.price) / p.price) * 100 as percentage_change,
-  ld.date as latest_update_date,
-  ld.date - INTERVAL '3 days' as previous_update_date
+  p1d.price as previous_price,
+  ((t.price - p1d.price) / NULLIF(p1d.price, 0)) * 100 as percentage_change,
+  t.updatedsource::date as latest_update_date,
+  t.updatedsource::date - INTERVAL '3 days' as previous_update_date,
+  -- New interval columns
+  -- Weekly changes
+  p1w.interval_price as previous_price_1w,
+  (t.price - p1w.interval_price) as price_change_1w,
+  ((t.price - p1w.interval_price) / NULLIF(p1w.interval_price, 0)) * 100 as percentage_change_1w,
+  -- Monthly changes
+  p1m.interval_price as previous_price_1m,
+  (t.price - p1m.interval_price) as price_change_1m,
+  ((t.price - p1m.interval_price) / NULLIF(p1m.interval_price, 0)) * 100 as percentage_change_1m,
+  -- 3 Month changes
+  p3m.interval_price as previous_price_3m,
+  (t.price - p3m.interval_price) as price_change_3m,
+  ((t.price - p3m.interval_price) / NULLIF(p3m.interval_price, 0)) * 100 as percentage_change_3m,
+  -- 6 Month changes
+  p6m.interval_price as previous_price_6m,
+  (t.price - p6m.interval_price) as price_change_6m,
+  ((t.price - p6m.interval_price) / NULLIF(p6m.interval_price, 0)) * 100 as percentage_change_6m,
+  -- Yearly changes
+  p1y.interval_price as previous_price_1y,
+  (t.price - p1y.interval_price) as price_change_1y,
+  ((t.price - p1y.interval_price) / NULLIF(p1y.interval_price, 0)) * 100 as percentage_change_1y
 INTO TEMPORARY TABLE temp_price_changes
-FROM latest_date ld,
-     pf_cards_price_history t  
-JOIN pf_cards_price_history p  
-  USING (cardid, variant)
-WHERE t.updatedsource::date = ld.date
-  AND p.updatedsource::date = ld.date - INTERVAL '1 days'
-  AND t.price != p.price;
+FROM current_prices t
+LEFT JOIN pf_cards_price_history p1d  -- 1 day
+  ON t.cardid = p1d.cardid 
+  AND t.variant = p1d.variant
+  AND p1d.updatedsource::date = t.updatedsource::date - INTERVAL '1 day'
+LEFT JOIN interval_prices p1w
+  ON t.cardid = p1w.cardid 
+  AND t.variant = p1w.variant 
+  AND p1w.interval_type = '1w'
+LEFT JOIN interval_prices p1m
+  ON t.cardid = p1m.cardid 
+  AND t.variant = p1m.variant 
+  AND p1m.interval_type = '1m'
+LEFT JOIN interval_prices p3m
+  ON t.cardid = p3m.cardid 
+  AND t.variant = p3m.variant 
+  AND p3m.interval_type = '3m'
+LEFT JOIN interval_prices p6m
+  ON t.cardid = p6m.cardid 
+  AND t.variant = p6m.variant 
+  AND p6m.interval_type = '6m'
+LEFT JOIN interval_prices p1y
+  ON t.cardid = p1y.cardid 
+  AND t.variant = p1y.variant 
+  AND p1y.interval_type = '1y';
 
 -- Then do the update in a transaction if we have data
 BEGIN;
