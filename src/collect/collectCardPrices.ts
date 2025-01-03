@@ -1,5 +1,6 @@
 const pgp = require('pg-promise')(); //User Postgres Helpers
 import axios from 'axios';
+import { getAuthToken } from '../utils/getAuthToken';
 require('dotenv').config();
 
 
@@ -27,6 +28,7 @@ interface ProductVariants {
 export async function collectCardPrices(db: any): Promise<void> {
     try {
         const sets = await db.any("SELECT setid FROM pfdata_sets");
+        const token = await getAuthToken()
         //console.log(`Found ${sets.length} sets to process`);
 
         for (const set of sets) {
@@ -70,7 +72,7 @@ export async function collectCardPrices(db: any): Promise<void> {
                 try {
                     const response = await axios.get(url, {
                         headers: {
-                            'Authorization': `Bearer ${process.env.TCGP_API}`
+                            'Authorization': `Bearer ${token}`
                         }
                     });
                     //console.log(`Received ${response.data.results.length} price results from TCGPlayer`);
