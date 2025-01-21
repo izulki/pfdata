@@ -30,10 +30,10 @@ export default async function CollectPrice(db: any, set: string, method: string)
             label({ label: 'collectPrice' }),
             timestamp(),
             json()
-            )  
-            ,
+        )
+        ,
         transports: [
-            new transports.File({ filename: `logs/collectPrice/${logid}.log`}),
+            new transports.File({ filename: `logs/collectPrice/${logid}.log` }),
         ],
     });
 
@@ -43,19 +43,19 @@ export default async function CollectPrice(db: any, set: string, method: string)
 
         /*** Get All Sets From Database ***/
         let sets = await db.any("SELECT setid, id FROM pfdata_sets ORDER BY id DESC", [true]);
-        for (let i=0; i<sets.length; i++) {
+        for (let i = 0; i < sets.length; i++) {
             let cardPriceInsertArray = [];
             let cardVariantsInsertArray = [];
             let quickPriceInsertArray = [];
 
-            let setPrice = 0;
+
             let updatedSetSource = "";
 
             //Calcualte amount of pages to iterate
             let pages = 1;
             try {
                 let setData = await AxiosInstance.get(`https://api.pokemontcg.io/v2/cards?q=set.id:${sets[i].setid}`);
-                pages = Math.ceil(setData.data.totalCount/250);       
+                pages = Math.ceil(setData.data.totalCount / 250);
             } catch (err) {
                 logger.error(`Error Fetching https://api.pokemontcg.io/v2/cards?q=set.id:${sets[i].setid}`);
                 logger.error(err);
@@ -63,8 +63,8 @@ export default async function CollectPrice(db: any, set: string, method: string)
             }
 
             /** Go through each page of the results to prepare insert Arrays **/
-            for (let j=1; j<=pages; j++) { 
-                logger.info(`FETCH https://api.pokemontcg.io/v2/cards?q=set.id:${sets[i].setid}&page=${j}`)            
+            for (let j = 1; j <= pages; j++) {
+                logger.info(`FETCH https://api.pokemontcg.io/v2/cards?q=set.id:${sets[i].setid}&page=${j}`)
                 let cards = [];
                 try {
                     let response = await AxiosInstance.get(`https://api.pokemontcg.io/v2/cards?q=set.id:${sets[i].setid}&page=${j}`);
@@ -78,7 +78,7 @@ export default async function CollectPrice(db: any, set: string, method: string)
                 cards.forEach(card => {
                     //Quick Price Parsing
                     try {
-                        Object.keys(card.tcgplayer.prices).forEach(function(k){
+                        Object.keys(card.tcgplayer.prices).forEach(function (k) {
                             try {
                                 quickPriceInsertArray.push(
                                     {
@@ -106,16 +106,13 @@ export default async function CollectPrice(db: any, set: string, method: string)
                         }
                     )
 
-                    /** --- SET PRICE DETERMINED BY ALL VARIATIONS OF TCGPLAYER MARKET VALUE --- */
                     if (card.tcgplayer?.prices) { //Add to set
                         for (const key in card.tcgplayer.prices) { //Loop through to find market value of each version
-                            cardVariantsInsertArray.push({cardid: card.id, variant: key})//Save each variant
-                            setPrice = setPrice + card.tcgplayer.prices[key].market;
-                            updatedSetSource = card.tcgplayer.updatedAt;
+                            cardVariantsInsertArray.push({ cardid: card.id, variant: key })//Save each variant
                         }
-                   } else {
-                        cardVariantsInsertArray.push({cardid: card.id, variant: "unknown"})//Save each variant
-                   }
+                    } else {
+                        cardVariantsInsertArray.push({ cardid: card.id, variant: "unknown" })//Save each variant
+                    }
                 })
             }
 
@@ -124,37 +121,20 @@ export default async function CollectPrice(db: any, set: string, method: string)
             logger.info(`Insert Variants into Database`)
             const cardVariantsCs = new pgp.helpers.ColumnSet([
                 "cardid", "variant"
-            ], {table: 'pfdata_variants'});
+            ], { table: 'pfdata_variants' });
             const cardVariantsOnConflict = ' ON CONFLICT(cardid, variant) DO NOTHING';
             let cardVariantsQuery = pgp.helpers.insert(cardVariantsInsertArray, cardVariantsCs) + cardVariantsOnConflict;
             let insertVariants = [];
 
             try {
                 insertVariants = await db.any(cardVariantsQuery);
-                
+
             } catch (err) {
                 logger.error(`Error inserting variants`)
                 errors++;
             }
 
 
-            /** Insert Data into Set Price Table  **/
-            logger.info(`Insert Set Price into Database`)
-            const setPriceCs = new pgp.helpers.ColumnSet([
-                "setid", "price", "updatedsource", "source", {
-                    name: 'updated',
-                    def: () => new Date() // default to the current Date/Time
-                }
-            ], {table: 'pfdata_setprices'});
-            const setPriceOnConflict = ' ON CONFLICT(setid, source, updatedsource) DO NOTHING';
-            let setPriceQuery = pgp.helpers.insert([{setid: sets[i].setid, price: setPrice, updatedsource: updatedSetSource, source: "tcgplayer"}], setPriceCs) + setPriceOnConflict;
-            let insertSetPrice = [];
-            try {
-                insertSetPrice = await db.any(setPriceQuery);
-            } catch (err) {
-                logger.error(`Error inserting set price into database`)
-                errors++;
-            }
 
             /** Insert Data into Quick Price Table  **/
             logger.info(`Inserting Quick Prices into Database`)
@@ -163,12 +143,12 @@ export default async function CollectPrice(db: any, set: string, method: string)
                     name: 'updated',
                     def: () => new Date() // default to the current Date/Time
                 }
-            ], {table: 'pfdata_quickprice'});
+            ], { table: 'pfdata_quickprice' });
             const quickPricesOnConflict = ' ON CONFLICT(cardid, variant, updatedsource) DO NOTHING';
 
             //console.log("generating using", quickPriceInsertArray)
-            
-            
+
+
             if (quickPriceInsertArray.length) {
                 let quickPriceQuery = pgp.helpers.insert(quickPriceInsertArray, quickPriceCs) + quickPricesOnConflict;
                 //console.log(quickPriceQuery)
@@ -189,7 +169,7 @@ export default async function CollectPrice(db: any, set: string, method: string)
                     name: 'updated',
                     def: () => new Date() // default to the current Date/Time
                 }
-            ], {table: 'pfdata_cardprices'});
+            ], { table: 'pfdata_cardprices' });
             const pricesOnConflict = ' ON CONFLICT(cardid, source, updatedsource) DO NOTHING';
 
             let priceQuery = pgp.helpers.insert(cardPriceInsertArray, priceCs) + pricesOnConflict;
@@ -218,7 +198,7 @@ export default async function CollectPrice(db: any, set: string, method: string)
         log: logid
     }
 
-    if ( errors == 0) {
+    if (errors == 0) {
         result.state = true;
         return Promise.resolve(result)
     } else {

@@ -1,6 +1,7 @@
 const pgp = require('pg-promise')(); //User Postgres Helpers
 import axios from 'axios';
 import { getAuthToken } from '../utils/getAuthToken';
+import dayjs from 'dayjs';
 require('dotenv').config();
 
 
@@ -33,7 +34,7 @@ export async function collectCardPrices(db: any): Promise<void> {
 
         for (const set of sets) {
             //console.log(`Processing set: ${set.setid}`);
-            
+
             const query = `
                 SELECT pcpm.*, pc.setid 
                 FROM pf_cards_pricing_map pcpm
@@ -62,7 +63,7 @@ export async function collectCardPrices(db: any): Promise<void> {
 
             const productIds = Object.keys(productMap);
             //console.log(`Found ${productIds.length} unique product IDs for set ${set.setid}`);
-            
+
             const CHUNK_SIZE = 50;
             for (let i = 0; i < productIds.length; i += CHUNK_SIZE) {
                 const chunk = productIds.slice(i, i + CHUNK_SIZE);
@@ -107,7 +108,7 @@ export async function collectCardPrices(db: any): Promise<void> {
                     }
 
                     //console.log(`Preparing to insert ${insertData.length} price records`);
-                    
+
                     if (insertData.length > 0) {
                         const cs = new pgp.helpers.ColumnSet([
                             'cardid',
@@ -116,7 +117,7 @@ export async function collectCardPrices(db: any): Promise<void> {
                             'updatedsource',
                             'updated',
                             'source'
-                        ], {table: 'pf_cards_price_history'});
+                        ], { table: 'pf_cards_price_history' });
 
                         //console.log(insertData)
 
@@ -130,6 +131,55 @@ export async function collectCardPrices(db: any): Promise<void> {
                 } catch (error) {
                     console.error(`Error details:`, error.response?.data || error.message);
                     //console.error(`Error processing chunk starting with product ${chunk[0]} for set ${set.setid}`);
+                }
+            }
+
+            /** Calculate Set Price first **/
+            //console.log(`Calculating set price for ${set.setid}`);
+            const setPriceQuery = `
+                SELECT SUM(price) as total_set_price 
+                FROM pf_cards_price_history pcph 
+                LEFT JOIN pfdata_cards pc ON pcph.cardid = pc.cardid 
+                WHERE pc.setid = $1 
+                AND updated::date = (
+                    SELECT MAX(ph2.updated::date)
+                    FROM pf_cards_price_history ph2
+                    LEFT JOIN pfdata_cards pc2 ON ph2.cardid = pc2.cardid
+                    WHERE pc2.setid = $1
+                )`;
+
+            let setPrice;
+            try {
+                const setPriceResult = await db.one(setPriceQuery, [set.setid]);
+                setPrice = setPriceResult.total_set_price;
+            } catch (err) {
+                console.error(`Error calculating set price: ${err}`);
+                continue; // Skip to next set if price calculation fails
+            }
+
+            /** Insert Data into Set Price Table **/
+            if (setPrice) {  // Only proceed if we got a valid price
+                //console.log(`Insert Set Price into Database`);
+                const setPriceCs = new pgp.helpers.ColumnSet([
+                    "setid", "price", "updatedsource", "source", {
+                        name: 'updated',
+                        def: () => new Date()
+                    }
+                ], { table: 'pfdata_setprices' });
+
+                const setPriceOnConflict = ' ON CONFLICT(setid, source, updatedsource) DO NOTHING';
+                let setPriceQuery = pgp.helpers.insert([{
+                    setid: set.setid,
+                    price: setPrice,
+                    updatedsource: new Date(),
+                    source: "tcgplayer"
+                }], setPriceCs) + setPriceOnConflict;
+
+                try {
+                    await db.any(setPriceQuery);
+                } catch (err) {
+                    console.error(`Error inserting set price into database: ${err}`);
+    
                 }
             }
         }
