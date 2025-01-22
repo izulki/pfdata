@@ -34,7 +34,7 @@ const logger = createLogger({
 async function main() {
   logger.info(`Main function started`)
   /** RUN COLLECTION EVERYDAY AT 1AM **/
-  const job = schedule.scheduleJob('0 10 * * *', async function (fireDate) {
+  const job = schedule.scheduleJob('1 0 * * *', async function (fireDate) {
     try {
       logger.info(` --- SYSTEM CURRENCY RATE COLLECTION STARTED ---`);
       logger.info('This job was supposed to run at ' + fireDate + ', but actually ran at ' + new Date());
