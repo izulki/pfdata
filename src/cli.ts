@@ -32,6 +32,7 @@ import ExteralMapper from "./collect/externalMapper";
 import CollectCurrencyRates from "./collect/collectCurrencyRates";
 import InitializePriceMapTable from "./collect/initializePriceMapTable";
 import { collectCardPrices } from "./collect/collectCardPrices";
+import WarmUp from "./collect/warmUp";
 
 const pgp = require('pg-promise')();
 const db = pgp(DBConfig());
@@ -91,6 +92,9 @@ async function cli() {
             case 'collectCardPrices':
                     await collectCardPrices(db);
                     break
+            case 'warmUp':
+                        await WarmUp(db);
+                        break
             default:
                 console.log('No such command')
         }
