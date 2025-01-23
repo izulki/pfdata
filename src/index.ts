@@ -3,7 +3,7 @@ const schedule = require('node-schedule');
 import CollectPrice from "./collect/collectPrice";
 import CollectAnalysis from "./collect/collectAnalysis";
 import CollectAllPortfolioValues from "./collect/collectAllPortfolioValues";
-
+import WarmUp from "./collect/warmUp"; // Import the WarmUp function
 
 import DBConfig from './utils/db_config';
 const pgp = require('pg-promise')();
@@ -13,7 +13,6 @@ const db = pgp(DBConfig());
 import { logToDBStart } from "./utils/logger";
 import CollectCurrencyRates from "./collect/collectCurrencyRates";
 import { collectCardPrices } from "./collect/collectCardPrices";
-import WarmUp from "./collect/warmUp";
 const { createLogger, format, transports, config } = require('winston');
 const { combine, timestamp, label, json } = format;
 
@@ -47,7 +46,9 @@ async function main() {
   logger.info(`Main function started`);
 
   // Schedule warm-up to run every 59 minutes
-  const warmUpJob = schedule.scheduleJob('*/59 * * * *', async function(fireDate) {
+  const rule = new schedule.RecurrenceRule();
+  rule.minute = new schedule.Range(0, 59, 59);  // Every 59 minutes
+  const warmUpJob = schedule.scheduleJob(rule, async function(fireDate) {
     logger.info(`Warm-up job was supposed to run at ${fireDate}, but actually ran at ${new Date()}`);
     await runWarmUp();
   });
