@@ -34,7 +34,7 @@ export default async function CollectAllPortfolioValues(db: any, method: string)
     logger.info(" --- STARTING --- ")
 
     let query = `
-        insert INTO user_metrics_log (userid, total_cards, total_unique_cards, unique_cards_with_variant, total_value, log_date)
+    INSERT INTO user_metrics_log (userid, total_cards, total_unique_cards, unique_cards_with_variant, total_value, log_date)
         SELECT 
             uc.userid,
             COUNT(*) AS total_cards,
@@ -42,17 +42,17 @@ export default async function CollectAllPortfolioValues(db: any, method: string)
             COUNT(DISTINCT CONCAT(uc.cardid, '-', uc.variant)) AS unique_cards_with_variant,
             SUM(
                 (SELECT price 
-                FROM pfdata_quickprice 
+                FROM pf_cards_price_history 
                 WHERE cardid = uc.cardid 
                 AND variant = uc.variant 
-                order BY updated DESC 
+                ORDER BY updated DESC 
                 LIMIT 1)
             ) AS total_value,
-            CURRENT_DATE AS log_date  -- Use CURRENT_DATE to set the log_date
-            from pf_users_card_inventory uc
+            CURRENT_DATE AS log_date
+            FROM pf_users_card_inventory uc
             LEFT JOIN pf_users_card_inventory_details pucid ON pucid.inventory_id = uc.id 
-            WHERE pucid.status < 100 or pucid.status is null
-        group BY 
+            WHERE pucid.status < 100 OR pucid.status IS NULL
+        GROUP BY 
             uc.userid
         ON CONFLICT (userid, log_date) DO NOTHING;
     `
