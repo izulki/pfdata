@@ -28,8 +28,14 @@ interface collectCardsResponse {
     errors: number,
     log: number
 }
-
-export default async function CollectCards(db: any, metaFlag: boolean, imageFlag: boolean, set: string, method: string): Promise<collectCardsResponse> {
+export default async function CollectCards(
+    db: any, 
+    metaFlag: boolean, 
+    imageFlag: boolean, 
+    set: string = "", // Default empty string
+    method: string = "default" // Default method
+  ): Promise<collectCardsResponse> {
+    // Your existing implementation
     let state = false;
     let errors = 0;
 
