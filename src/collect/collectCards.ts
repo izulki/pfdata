@@ -4,6 +4,7 @@ import AWSConfig from '../utils/aws_config';
 
 /** Logging Setup */
 import { logToDBStart, logToDBEnd } from "../utils/logger";
+const sharp = require('sharp');
 const { createLogger, format, transports, config } = require('winston');
 const { combine, timestamp, label, json } = format;
 
@@ -112,7 +113,9 @@ export default async function CollectCards(db: any, metaFlag: boolean, imageFlag
                             regulationMark: card.regulationMark,
                             images: {
                                 small: `https://pokefolio.nyc3.cdn.digitaloceanspaces.com/images/${card.set.id}/${card.number}.png`,
-                                large: `https://pokefolio.nyc3.cdn.digitaloceanspaces.com/images/${card.set.id}/${card.number}_hires.png`
+                                large: `https://pokefolio.nyc3.cdn.digitaloceanspaces.com/images/${card.set.id}/${card.number}_hires.png`,
+                                small_webp: `https://pokefolio.nyc3.cdn.digitaloceanspaces.com/images/${card.set.id}/${card.number}.webp`,
+                                large_webp: `https://pokefolio.nyc3.cdn.digitaloceanspaces.com/images/${card.set.id}/${card.number}_hires.webp`
                             },
                             tcgplayer: card.tcgplayer,
                             cardmarket: card.cardmarket,
@@ -157,7 +160,6 @@ export default async function CollectCards(db: any, metaFlag: boolean, imageFlag
                 logger.info(`Inserting Images for Set to Database`)
                 for (let k = 0; k < cardImageArray.length; k++) {
                     let downloaded;
-                    let put;
                     try {
                         downloaded = await axios.get(encodeURI(cardImageArray[k].downloadFrom), {
                             responseType: "arraybuffer"
@@ -167,24 +169,59 @@ export default async function CollectCards(db: any, metaFlag: boolean, imageFlag
                         logger.error(`Error Downloading Image ${cardImageArray[k].downloadFrom}`);
                         logger.error(err);
                         errors++;
+                        continue; // Skip to next iteration if download fails
                     }
+                    
                     try {
-                        put = await s3.putObject({
+                        // 1. Upload the original PNG
+                        await s3.putObject({
                             'ACL': 'public-read',
                             'Body': downloaded.data,
                             'Bucket': 'pokefolio',
                             'Key': `${cardImageArray[k].uploadTo}/${cardImageArray[k].filename}`,
                             'ContentType': 'image/png'
                         },
-                            (err, data) => {
-                                if (err) {
-                                    logger.error(`Error Uploading Image ${cardImageArray[k].uploadTo}/${cardImageArray[k].filename}`);
-                                    logger.error(err);
-                                    errors++;
-                                }
+                        (err, data) => {
+                            if (err) {
+                                logger.error(`Error Uploading PNG Image ${cardImageArray[k].uploadTo}/${cardImageArray[k].filename}`);
+                                logger.error(err);
+                                errors++;
+                            }
+                        });
+                        
+                        // 2. Convert to WebP and upload that version
+                        const webpBuffer = await sharp(downloaded.data)
+                            .webp({ 
+                                quality: 80,
+                                lossless: false,
+                                nearLossless: false,
+                                smartSubsample: true,
+                                reductionEffort: 4
                             })
+                            .toBuffer();
+                            
+                        // Create WebP filename by replacing .png extension or adding .webp if no extension
+                        const webpFilename = cardImageArray[k].filename.includes('.png') 
+                            ? cardImageArray[k].filename.replace(/\.png$/i, '.webp')
+                            : `${cardImageArray[k].filename}.webp`;
+                        
+                        await s3.putObject({
+                            'ACL': 'public-read',
+                            'Body': webpBuffer,
+                            'Bucket': 'pokefolio',
+                            'Key': `${cardImageArray[k].uploadTo}/${webpFilename}`,
+                            'ContentType': 'image/webp'
+                        },
+                        (err, data) => {
+                            if (err) {
+                                logger.error(`Error Uploading WebP Image ${cardImageArray[k].uploadTo}/${webpFilename}`);
+                                logger.error(err);
+                                errors++;
+                            }
+                        });
+                        
                     } catch (err) {
-                        logger.error(`Error Uploading Image ${cardImageArray[k].uploadTo}/${cardImageArray[k].filename}`);
+                        logger.error(`Error Processing or Uploading Image ${cardImageArray[k].uploadTo}/${cardImageArray[k].filename}`);
                         logger.error(err);
                         errors++;
                     }
