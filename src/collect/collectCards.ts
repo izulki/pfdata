@@ -29,12 +29,12 @@ interface collectCardsResponse {
     log: number
 }
 export default async function CollectCards(
-    db: any, 
-    metaFlag: boolean, 
-    imageFlag: boolean, 
+    db: any,
+    metaFlag: boolean,
+    imageFlag: boolean,
     set: string = "", // Default empty string
     method: string = "default" // Default method
-  ): Promise<collectCardsResponse> {
+): Promise<collectCardsResponse> {
     // Your existing implementation
     let state = false;
     let errors = 0;
@@ -62,6 +62,27 @@ export default async function CollectCards(
         /*** Get All Sets From Database ***/
         let sets = await db.any("SELECT setid, id FROM pfdata_sets ORDER BY id DESC", [true]);
         for (let i = 0; i < sets.length; i++) {
+
+            const allowedSetIds = [
+                'xy11', 'xy10', 'g1', 'xy9', 'xy8', 'xy7', 'xy6', 'dc1', 'xy5', 'xy4',
+                'xy3', 'xy2', 'xy1', 'xy0', 'bw11', 'xyp', 'bw10', 'bw9', 'bw8', 'bw7',
+                'dv1', 'bw6', 'mcd12', 'bw5', 'bw4', 'bw3', 'bw2', 'mcd11', 'bw1', 'bwp',
+                'col1', 'hgss4', 'hgss3', 'hgss2', 'hsp', 'hgss1', 'ru1', 'pl4', 'pl3',
+                'pl2', 'pop9', 'pl1', 'dp7', 'pop8', 'dp6', 'dp5', 'pop7', 'dp4', 'dp3',
+                'pop6', 'dp2', 'dpp', 'dp1', 'ex16', 'pop5', 'ex15', 'pop4', 'ex14',
+                'ex13', 'pop3', 'ex12', 'ex11', 'pop2', 'ex10', 'ex9', 'ex8', 'ex7',
+                'pop1', 'ex6', 'ex5', 'ex4', 'np', 'ex3', 'ex2', 'ex1', 'ecard3',
+                'ecard2', 'ecard1', 'base6', 'neo4', 'neo3', 'si1', 'neo2', 'neo1',
+                'gym2', 'gym1', 'base5', 'base4', 'base3', 'basep', 'base2', 'base1'
+            ];
+    
+            
+            // Check if current set ID is in the allowed list
+            if (!allowedSetIds.includes(sets[i].setid)) {
+                console.log(`Skipping set ${sets[i].setid} - not in allowed list`);
+                continue; // Skip this set and move to the next one
+            }
+
             console.log("Processing ", sets[i].setid)
             let cardsInsertArray = [];
             let cardImageArray = [];
@@ -178,7 +199,7 @@ export default async function CollectCards(
                         errors++;
                         continue; // Skip to next iteration if download fails
                     }
-                    
+
                     try {
                         // 1. Upload the original PNG
                         await s3.putObject({
@@ -189,17 +210,17 @@ export default async function CollectCards(
                             'ContentType': 'image/png',
                             'CacheControl': 'public, max-age=31536000, immutable'
                         },
-                        (err, data) => {
-                            if (err) {
-                                logger.error(`Error Uploading PNG Image ${cardImageArray[k].uploadTo}/${cardImageArray[k].filename}`);
-                                logger.error(err);
-                                errors++;
-                            }
-                        });
-                        
+                            (err, data) => {
+                                if (err) {
+                                    logger.error(`Error Uploading PNG Image ${cardImageArray[k].uploadTo}/${cardImageArray[k].filename}`);
+                                    logger.error(err);
+                                    errors++;
+                                }
+                            });
+
                         // 2. Convert to WebP and upload that version
                         const webpBuffer = await sharp(downloaded.data)
-                            .webp({ 
+                            .webp({
                                 quality: 80,
                                 lossless: false,
                                 nearLossless: false,
@@ -207,12 +228,12 @@ export default async function CollectCards(
                                 reductionEffort: 4
                             })
                             .toBuffer();
-                            
+
                         // Create WebP filename by replacing .png extension or adding .webp if no extension
-                        const webpFilename = cardImageArray[k].filename.includes('.png') 
+                        const webpFilename = cardImageArray[k].filename.includes('.png')
                             ? cardImageArray[k].filename.replace(/\.png$/i, '.webp')
                             : `${cardImageArray[k].filename}.webp`;
-                        
+
                         await s3.putObject({
                             'ACL': 'public-read',
                             'Body': webpBuffer,
@@ -221,14 +242,14 @@ export default async function CollectCards(
                             'ContentType': 'image/webp',
                             'CacheControl': 'public, max-age=31536000, immutable'
                         },
-                        (err, data) => {
-                            if (err) {
-                                logger.error(`Error Uploading WebP Image ${cardImageArray[k].uploadTo}/${webpFilename}`);
-                                logger.error(err);
-                                errors++;
-                            }
-                        });
-                        
+                            (err, data) => {
+                                if (err) {
+                                    logger.error(`Error Uploading WebP Image ${cardImageArray[k].uploadTo}/${webpFilename}`);
+                                    logger.error(err);
+                                    errors++;
+                                }
+                            });
+
                     } catch (err) {
                         logger.error(`Error Processing or Uploading Image ${cardImageArray[k].uploadTo}/${cardImageArray[k].filename}`);
                         logger.error(err);
@@ -250,7 +271,7 @@ export default async function CollectCards(
         log: logid
     }
 
-    if ( errors == 0) {
+    if (errors == 0) {
         result.state = true;
         return Promise.resolve(result)
     } else {
