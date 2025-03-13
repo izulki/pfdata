@@ -185,7 +185,8 @@ export default async function CollectCards(
                             'Body': downloaded.data,
                             'Bucket': 'pokefolio',
                             'Key': `${cardImageArray[k].uploadTo}/${cardImageArray[k].filename}`,
-                            'ContentType': 'image/png'
+                            'ContentType': 'image/png',
+                            'CacheControl': 'public, max-age=31536000, immutable'
                         },
                         (err, data) => {
                             if (err) {
@@ -216,7 +217,8 @@ export default async function CollectCards(
                             'Body': webpBuffer,
                             'Bucket': 'pokefolio',
                             'Key': `${cardImageArray[k].uploadTo}/${webpFilename}`,
-                            'ContentType': 'image/webp'
+                            'ContentType': 'image/webp',
+                            'CacheControl': 'public, max-age=31536000, immutable'
                         },
                         (err, data) => {
                             if (err) {
