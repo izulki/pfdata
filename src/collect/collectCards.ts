@@ -62,6 +62,7 @@ export default async function CollectCards(
         /*** Get All Sets From Database ***/
         let sets = await db.any("SELECT setid, id FROM pfdata_sets ORDER BY id DESC", [true]);
         for (let i = 0; i < sets.length; i++) {
+            console.log("Processing ", sets[i].setid)
             let cardsInsertArray = [];
             let cardImageArray = [];
 
