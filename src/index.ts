@@ -45,9 +45,10 @@ async function runWarmUp() {
 async function main() {
   logger.info(`Main function started`);
 
-  // Schedule warm-up to run every 59 minutes
+  // Schedule warm-up to run every 6 hours
   const rule = new schedule.RecurrenceRule();
-  rule.minute = new schedule.Range(0, 59, 59);  // Every 59 minutes
+  rule.hour = new schedule.Range(0, 23, 6);  // Every 6 hours
+  rule.minute = 1;
   const warmUpJob = schedule.scheduleJob(rule, async function(fireDate) {
     logger.info(`Warm-up job was supposed to run at ${fireDate}, but actually ran at ${new Date()}`);
     await runWarmUp();

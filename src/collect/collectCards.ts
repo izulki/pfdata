@@ -64,14 +64,7 @@ export default async function CollectCards(
         for (let i = 0; i < sets.length; i++) {
 
             const allowedSetIds = [
-                'bw3', 'bw2', 'mcd11', 'bw1', 'bwp',
-                'col1', 'hgss4', 'hgss3', 'hgss2', 'hsp', 'hgss1', 'ru1', 'pl4', 'pl3',
-                'pl2', 'pop9', 'pl1', 'dp7', 'pop8', 'dp6', 'dp5', 'pop7', 'dp4', 'dp3',
-                'pop6', 'dp2', 'dpp', 'dp1', 'ex16', 'pop5', 'ex15', 'pop4', 'ex14',
-                'ex13', 'pop3', 'ex12', 'ex11', 'pop2', 'ex10', 'ex9', 'ex8', 'ex7',
-                'pop1', 'ex6', 'ex5', 'ex4', 'np', 'ex3', 'ex2', 'ex1', 'ecard3',
-                'ecard2', 'ecard1', 'base6', 'neo4', 'neo3', 'si1', 'neo2', 'neo1',
-                'gym2', 'gym1', 'base5', 'base4', 'base3', 'basep', 'base2', 'base1'
+                'base1'
             ];
     
             
