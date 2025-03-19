@@ -32,6 +32,8 @@ async function warmUpApiEndpoint(endpoint: string): Promise<{
 }> {
     const url = `https://api.pokefolio.co/api/v2/${endpoint}`;
     const startTime = Date.now();
+    console.log("phase 1, ", url)
+
     
     try {
         await AxiosInstance.get(url, {
@@ -192,7 +194,7 @@ async function extractAndWarmImages(setid: string): Promise<{
         const filteredUrls = uniqueUrls.filter(url => !url.includes('_hires'));
         const imageUrls = filteredUrls.slice(0, MAX_IMAGES_PER_PAGE);
         
-        //console.log(`Found ${imageUrls.length} images for ${url}`);
+        console.log(`Found ${imageUrls.length} images for ${url}`);
         
         // Warm image URLs in parallel
         const imageResults = await Promise.all(
@@ -226,7 +228,7 @@ export default async function WarmUp(db: any) {
     try {
         // Get sets ordered by priority (could be by release date, popularity, etc.)
         const sets = await db.any(`
-            SELECT s.setid 
+            SELECT s.slug as setid 
             FROM pfdata_sets s
             ORDER BY s.releaseddate DESC
         `) as Array<{setid: string}>;
@@ -261,10 +263,11 @@ export default async function WarmUp(db: any) {
         // Process sets in batches
         for (let i = 0; i < sets.length; i += BATCH_SIZE) {
             const batchSets = sets.slice(i, i + BATCH_SIZE);
-            //console.log(`Processing batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(sets.length/BATCH_SIZE)}: sets ${i+1}-${Math.min(i+BATCH_SIZE, sets.length)}`);
+            console.log(`Processing batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(sets.length/BATCH_SIZE)}: sets ${i+1}-${Math.min(i+BATCH_SIZE, sets.length)}`);
+            console.log(batchSets)
             
             // Phase 1: Warm API endpoints for this batch
-            //console.log(`Phase 1: Warming API endpoints for batch ${Math.floor(i/BATCH_SIZE) + 1}...`);
+            console.log(`Phase 1: Warming API endpoints for batch ${Math.floor(i/BATCH_SIZE) + 1}...`);
             for (const set of batchSets) {
                 const apiResult = await warmSetApis(set.setid);
                 results.apis.push(apiResult);
@@ -274,7 +277,7 @@ export default async function WarmUp(db: any) {
             await new Promise(resolve => setTimeout(resolve, 1000));
             
             // Phase 2: Warm pages for this batch (now that APIs should be cached)
-            //console.log(`Phase 2: Warming pages for batch ${Math.floor(i/BATCH_SIZE) + 1}...`);
+            console.log(`Phase 2: Warming pages for batch ${Math.floor(i/BATCH_SIZE) + 1}...`);
             const pageResults = await Promise.all(
                 batchSets.map(set => warmUpPage(set.setid))
             );
@@ -284,7 +287,7 @@ export default async function WarmUp(db: any) {
             await new Promise(resolve => setTimeout(resolve, 1000));
             
             // Phase 3: Extract and warm images for this batch
-            //console.log(`Phase 3: Warming images for batch ${Math.floor(i/BATCH_SIZE) + 1}...`);
+            console.log(`Phase 3: Warming images for batch ${Math.floor(i/BATCH_SIZE) + 1}...`);
             const imageResults = await Promise.all(
                 batchSets.map(set => extractAndWarmImages(set.setid))
             );
@@ -292,7 +295,7 @@ export default async function WarmUp(db: any) {
             
             // Delay before next batch
             if (i + BATCH_SIZE < sets.length) {
-                //console.log(`Batch complete. Pausing before next batch...`);
+                console.log(`Batch complete. Pausing before next batch...`);
                 await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
             }
         }
@@ -306,7 +309,7 @@ export default async function WarmUp(db: any) {
             .map(r => r.setid);
 
         if (failedPages.length > 0) {
-            //console.log(`Retrying ${failedPages.length} failed pages...`);
+            console.log(`Retrying ${failedPages.length} failed pages...`);
             
             for (const setid of failedPages) {
                 const retryResult = await warmUpPage(setid);
