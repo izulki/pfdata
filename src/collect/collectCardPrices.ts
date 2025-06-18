@@ -29,6 +29,8 @@ export async function collectCardPrices(db: any): Promise<void> {
     try {
         const sets = await db.any("SELECT setid FROM pfdata_sets ORDER BY releaseddate DESC");
         const token = await getAuthToken();
+        console.log(token)
+        
         const totalSets = sets.length;
         const timeStarted = new Date();
         

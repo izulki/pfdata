@@ -33,6 +33,7 @@ import CollectCurrencyRates from "./collect/collectCurrencyRates";
 import InitializePriceMapTable from "./collect/initializePriceMapTable";
 import { collectCardPrices } from "./collect/collectCardPrices";
 import WarmUp from "./collect/warmUp";
+import { runDiscordCleanup } from "./maintain/discordCleanup";
 
 const pgp = require('pg-promise')();
 const db = pgp(DBConfig());
@@ -87,14 +88,17 @@ async function cli() {
                 await CollectCurrencyRates(db, "MANUAL");
                 break
             case 'initPriceMap':
-                    await InitializePriceMapTable(db, "MANUAL");
-                    break
+                await InitializePriceMapTable(db, "MANUAL");
+                break
             case 'collectCardPrices':
-                    await collectCardPrices(db);
-                    break
+                await collectCardPrices(db);
+                break
             case 'warmUp':
-                        await WarmUp(db);
-                        break
+                await WarmUp(db);
+                break
+            case 'discordCleanup':
+                await runDiscordCleanup(db, "MANUAL");
+                break
             default:
                 console.log('No such command')
         }

@@ -13,6 +13,7 @@ const db = pgp(DBConfig());
 import { logToDBStart } from "./utils/logger";
 import CollectCurrencyRates from "./collect/collectCurrencyRates";
 import { collectCardPrices } from "./collect/collectCardPrices";
+import { runDiscordCleanup } from "./maintain/discordCleanup";
 const { createLogger, format, transports, config } = require('winston');
 const { combine, timestamp, label, json } = format;
 
@@ -45,7 +46,14 @@ async function runWarmUp() {
 async function main() {
   logger.info(`Main function started`);
 
-  // Schedule warm-up to run every 6 hours
+
+  // RUN EVERY 5 MINUTES
+  const discordCleanupJob = schedule.scheduleJob('*/5 * * * *', async function(fireDate) {
+    logger.info(`Discord cleanup job was supposed to run at ${fireDate}, but actually ran at ${new Date()}`);
+    await runDiscordCleanup(db, "SYSTEM");
+  });
+
+  // RUN EVERY 6 HOURS
   const rule = new schedule.RecurrenceRule();
   rule.hour = new schedule.Range(0, 23, 6);  // Every 6 hours
   rule.minute = 1;

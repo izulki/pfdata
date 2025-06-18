@@ -56,7 +56,7 @@ export default async function InitializePriceMapTable(db: any, method: string): 
     let errors = 0;
 
     const specificSets = [
-        'sv8pt5'
+        'sv10'
     ];
 
     console.log("Starting Init Price Map for specific sets")
