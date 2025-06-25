@@ -34,6 +34,7 @@ import InitializePriceMapTable from "./collect/initializePriceMapTable";
 import { collectCardPrices } from "./collect/collectCardPrices";
 import WarmUp from "./collect/warmUp";
 import { runDiscordCleanup } from "./maintain/discordCleanup";
+import { runStripeReconcile } from "./maintain/stripeReconcile";
 
 const pgp = require('pg-promise')();
 const db = pgp(DBConfig());
@@ -98,6 +99,9 @@ async function cli() {
                 break
             case 'discordCleanup':
                 await runDiscordCleanup(db, "MANUAL");
+                break
+            case 'stripeReconcile':
+                await runStripeReconcile(db, "MANUAL");
                 break
             default:
                 console.log('No such command')
