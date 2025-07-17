@@ -35,6 +35,7 @@ import { collectCardPrices } from "./collect/collectCardPrices";
 import WarmUp from "./collect/warmUp";
 import { runDiscordCleanup } from "./maintain/discordCleanup";
 import { runStripeReconcile } from "./maintain/stripeReconcile";
+import { runStripeReconcileTEST } from "./maintain/stripeReconcileTEST";
 
 const pgp = require('pg-promise')();
 const db = pgp(DBConfig());
@@ -102,6 +103,9 @@ async function cli() {
                 break
             case 'stripeReconcile':
                 await runStripeReconcile(db, "MANUAL");
+                break
+            case 'stripeReconcileTEST':
+                await runStripeReconcileTEST(db, "MANUAL");
                 break
             default:
                 console.log('No such command')

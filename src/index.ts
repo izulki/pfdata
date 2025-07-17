@@ -15,6 +15,7 @@ import CollectCurrencyRates from "./collect/collectCurrencyRates";
 import { collectCardPrices } from "./collect/collectCardPrices";
 import { runDiscordCleanup } from "./maintain/discordCleanup";
 import { runStripeReconcile } from "./maintain/stripeReconcile";
+import { runStripeReconcileTEST } from "./maintain/stripeReconcileTEST";
 const { createLogger, format, transports, config } = require('winston');
 const { combine, timestamp, label, json } = format;
 
@@ -58,6 +59,7 @@ async function main() {
     const stripeReconcile = schedule.scheduleJob('*/5 * * * *', async function(fireDate) {
       logger.info(`Discord cleanup job was supposed to run at ${fireDate}, but actually ran at ${new Date()}`);
       await runStripeReconcile(db, "SYSTEM");
+      await runStripeReconcileTEST(db, "SYSTEM");
     });
 
   // RUN EVERY 6 HOURS
