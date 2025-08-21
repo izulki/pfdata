@@ -16,6 +16,8 @@ import { collectCardPrices } from "./collect/collectCardPrices";
 import { runDiscordCleanup } from "./maintain/discordCleanup";
 import { runStripeReconcile } from "./maintain/stripeReconcile";
 import { runStripeReconcileTEST } from "./maintain/stripeReconcileTEST";
+import { collectSealedPrices } from "./collect/collectSealedPrices";
+import CollectSealedAnalysis from "./collect/collectSealedAnalysis";
 const { createLogger, format, transports, config } = require('winston');
 const { combine, timestamp, label, json } = format;
 
@@ -95,6 +97,16 @@ async function main() {
     }
 
     try {
+      logger.info(` --- NEW SYSTEM SEALED COLLECTION STARTED ---`);
+      logger.info('This job was supposed to run at ' + fireDate + ', but actually ran at ' + new Date());
+      await collectSealedPrices(db)
+      logger.info(` --- NEW SYSTEM SEALED COLLECTION COMPLETED ---`);
+    } catch (e) {
+      logger.info(` --- NEW SYSTEM SEALED COLLECTION ERROR ---`);
+      logger.info(e);
+    }
+
+    try {
       logger.info(` --- SYSTEM PRICE COLLECTION STARTED ---`);
       logger.info('This job was supposed to run at ' + fireDate + ', but actually ran at ' + new Date());
       let collectedPrice = await CollectPrice(db, "", "SYSTEM")
@@ -109,6 +121,17 @@ async function main() {
       logger.info(` --- SYSTEM ANALYSIS COLLECTION STARTED ---`);
       logger.info('This job was supposed to run at ' + fireDate + ', but actually ran at ' + new Date());
       let collectedAnalysis = await CollectAnalysis(db, "SYSTEM")
+      logger.info(collectedAnalysis);
+      logger.info(` --- SYSTEM ANALYSIS COLLECTION COMPLETED ---`);
+    } catch (e) {
+      logger.info(` --- SYSTEM ANALYSIS COLLECTION ERROR ---`);
+      logger.info(e);
+    }
+
+    try {
+      logger.info(` --- SYSTEM ANALYSIS COLLECTION STARTED ---`);
+      logger.info('This job was supposed to run at ' + fireDate + ', but actually ran at ' + new Date());
+      let collectedAnalysis = await CollectSealedAnalysis(db, "SYSTEM")
       logger.info(collectedAnalysis);
       logger.info(` --- SYSTEM ANALYSIS COLLECTION COMPLETED ---`);
     } catch (e) {

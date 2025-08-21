@@ -64,7 +64,8 @@ export default async function CollectCards(
         for (let i = 0; i < sets.length; i++) {
 
             const allowedSetIds = [
-                'sv10'
+                    'rsv10pt5',
+                    'zsv10pt5'
             ];
     
             

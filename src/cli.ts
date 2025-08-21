@@ -36,6 +36,8 @@ import WarmUp from "./collect/warmUp";
 import { runDiscordCleanup } from "./maintain/discordCleanup";
 import { runStripeReconcile } from "./maintain/stripeReconcile";
 import { runStripeReconcileTEST } from "./maintain/stripeReconcileTEST";
+import { collectSealedPrices } from "./collect/collectSealedPrices";
+import CollectSealedAnalysis from "./collect/collectSealedAnalysis";
 
 const pgp = require('pg-promise')();
 const db = pgp(DBConfig());
@@ -74,6 +76,11 @@ async function cli() {
                 state = await CollectAnalysis(db, "MANUAL");
                 logger.info(`Finished CollectAnalysis results: ${JSON.stringify(state)}`)
                 break;
+            case 'collectSealedAnalysis':
+                logger.info(`Starting collectSealedAnalysis function`)
+                state = await CollectSealedAnalysis(db, "MANUAL");
+                logger.info(`Finished collectSealedAnalysis results: ${JSON.stringify(state)}`)
+                break;
             case 'collectSprites':
                 await CollectSprites();
                 break;
@@ -94,6 +101,9 @@ async function cli() {
                 break
             case 'collectCardPrices':
                 await collectCardPrices(db);
+                break
+            case 'collectSealedPrices':
+                await collectSealedPrices(db);
                 break
             case 'warmUp':
                 await WarmUp(db);
