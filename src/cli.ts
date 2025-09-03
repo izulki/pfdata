@@ -38,6 +38,8 @@ import { runStripeReconcile } from "./maintain/stripeReconcile";
 import { runStripeReconcileTEST } from "./maintain/stripeReconcileTEST";
 import { collectSealedPrices } from "./collect/collectSealedPrices";
 import CollectSealedAnalysis from "./collect/collectSealedAnalysis";
+import collectSealedImages from "./collect/collectSealedImages";
+import CollectGradedAnalysis from "./collect/collectGradedAnalysis";
 
 const pgp = require('pg-promise')();
 const db = pgp(DBConfig());
@@ -76,6 +78,11 @@ async function cli() {
                 state = await CollectAnalysis(db, "MANUAL");
                 logger.info(`Finished CollectAnalysis results: ${JSON.stringify(state)}`)
                 break;
+            case 'collectGradedAnalysis':
+                logger.info(`Starting collectGradedAnalysis function`)
+                state = await CollectGradedAnalysis(db, "MANUAL");
+                logger.info(`Finished collectGradedAnalysis results: ${JSON.stringify(state)}`)
+                break;
             case 'collectSealedAnalysis':
                 logger.info(`Starting collectSealedAnalysis function`)
                 state = await CollectSealedAnalysis(db, "MANUAL");
@@ -83,6 +90,9 @@ async function cli() {
                 break;
             case 'collectSprites':
                 await CollectSprites();
+                break;
+            case 'collectSealedImages':
+                await collectSealedImages(db);
                 break;
             case 'collectSimilarityVectors':
                 await CollectSimilarityVectors(db, "MANUAL");

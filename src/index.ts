@@ -18,6 +18,7 @@ import { runStripeReconcile } from "./maintain/stripeReconcile";
 import { runStripeReconcileTEST } from "./maintain/stripeReconcileTEST";
 import { collectSealedPrices } from "./collect/collectSealedPrices";
 import CollectSealedAnalysis from "./collect/collectSealedAnalysis";
+import CollectGradedAnalysis from "./collect/collectGradedAnalysis";
 const { createLogger, format, transports, config } = require('winston');
 const { combine, timestamp, label, json } = format;
 
@@ -125,6 +126,17 @@ async function main() {
       logger.info(` --- SYSTEM ANALYSIS COLLECTION COMPLETED ---`);
     } catch (e) {
       logger.info(` --- SYSTEM ANALYSIS COLLECTION ERROR ---`);
+      logger.info(e);
+    }
+
+    try {
+      logger.info(` --- SYSTEM CollectGradedAnalysis COLLECTION STARTED ---`);
+      logger.info('This job was supposed to run at ' + fireDate + ', but actually ran at ' + new Date());
+      let collectGradedAnalysis = await CollectGradedAnalysis(db, "SYSTEM")
+      logger.info(collectGradedAnalysis);
+      logger.info(` --- SYSTEM CollectGradedAnalysis COLLECTION COMPLETED ---`);
+    } catch (e) {
+      logger.info(` --- SYSTEM CollectGradedAnalysis COLLECTION ERROR ---`);
       logger.info(e);
     }
 
