@@ -40,6 +40,7 @@ import { collectSealedPrices } from "./collect/collectSealedPrices";
 import CollectSealedAnalysis from "./collect/collectSealedAnalysis";
 import collectSealedImages from "./collect/collectSealedImages";
 import CollectGradedAnalysis from "./collect/collectGradedAnalysis";
+import massCardEntry from "./collect/massCardEntry";
 
 const pgp = require('pg-promise')();
 const db = pgp(DBConfig());
@@ -126,6 +127,9 @@ async function cli() {
                 break
             case 'stripeReconcileTEST':
                 await runStripeReconcileTEST(db, "MANUAL");
+                break
+            case 'massCardEntry':
+                await massCardEntry();
                 break
             default:
                 console.log('No such command')

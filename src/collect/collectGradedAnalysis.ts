@@ -65,218 +65,115 @@ async function processGradedPriceChangesForSet(db: any, setid: string, logger: a
 
         // Process this set and insert into staging
         const result = await db.one(`
-                current_prices AS (
-                    WITH latest_dates_per_card AS (
-                        SELECT cardid, variant, grade, MAX(sold_date::date) as latest_date
-                        FROM pf_graded_cards_price_history t
-                        LEFT JOIN pfdata_cards pc ON t.cardid = pc.cardid
-                        WHERE pc.setid = $1 AND t.sold_date IS NOT NULL
-                        GROUP BY cardid, variant, grade
+            WITH current_prices AS (
+                    SELECT DISTINCT ON (t.cardid, t.variant, t.grade)
+                        t.cardid, 
+                        t.variant, 
+                        t.grade,
+                        t.price as current_price,
+                        t.sold_date::timestamp as latest_date
+                    FROM pf_graded_cards_price_history t
+                    LEFT JOIN pfdata_cards pc ON t.cardid = pc.cardid
+                    WHERE pc.setid = $1 
+                        AND t.sold_date IS NOT NULL 
+                        AND t.price IS NOT NULL
+                    ORDER BY t.cardid, t.variant, t.grade, t.sold_date::timestamp DESC, t.id DESC
+                ),
+                
+                previous_day_prices AS (
+                    SELECT DISTINCT ON (cp.cardid, cp.variant, cp.grade)
+                        cp.cardid, cp.variant, cp.grade,
+                        ph.price as previous_price,
+                        ph.sold_date::timestamp as previous_date
+                    FROM current_prices cp
+                    LEFT JOIN pf_graded_cards_price_history ph 
+                        ON cp.cardid = ph.cardid 
+                        AND cp.variant = ph.variant 
+                        AND cp.grade = ph.grade
+                        AND ph.sold_date::timestamp < cp.latest_date
+                        AND ph.price IS NOT NULL
+                    ORDER BY cp.cardid, cp.variant, cp.grade, ph.sold_date::timestamp DESC, ph.id DESC
+                ),
+                
+                interval_prices AS (
+                    SELECT 
+                        cp.cardid, cp.variant, cp.grade,
+                        (SELECT ph.price FROM pf_graded_cards_price_history ph 
+                        WHERE ph.cardid = cp.cardid AND ph.variant = cp.variant AND ph.grade = cp.grade
+                        AND ph.sold_date::timestamp <= cp.latest_date - INTERVAL '7 days' AND ph.price IS NOT NULL
+                        ORDER BY ABS(EXTRACT(EPOCH FROM (cp.latest_date - INTERVAL '7 days' - ph.sold_date::timestamp)))
+                        LIMIT 1) as price_1w,
+                        (SELECT ph.price FROM pf_graded_cards_price_history ph 
+                        WHERE ph.cardid = cp.cardid AND ph.variant = cp.variant AND ph.grade = cp.grade
+                        AND ph.sold_date::timestamp <= cp.latest_date - INTERVAL '1 month' AND ph.price IS NOT NULL
+                        ORDER BY ABS(EXTRACT(EPOCH FROM (cp.latest_date - INTERVAL '1 month' - ph.sold_date::timestamp)))
+                        LIMIT 1) as price_1m,
+                        (SELECT ph.price FROM pf_graded_cards_price_history ph 
+                        WHERE ph.cardid = cp.cardid AND ph.variant = cp.variant AND ph.grade = cp.grade
+                        AND ph.sold_date::timestamp <= cp.latest_date - INTERVAL '3 months' AND ph.price IS NOT NULL
+                        ORDER BY ABS(EXTRACT(EPOCH FROM (cp.latest_date - INTERVAL '3 months' - ph.sold_date::timestamp)))
+                        LIMIT 1) as price_3m,
+                        (SELECT ph.price FROM pf_graded_cards_price_history ph 
+                        WHERE ph.cardid = cp.cardid AND ph.variant = cp.variant AND ph.grade = cp.grade
+                        AND ph.sold_date::timestamp <= cp.latest_date - INTERVAL '6 months' AND ph.price IS NOT NULL
+                        ORDER BY ABS(EXTRACT(EPOCH FROM (cp.latest_date - INTERVAL '6 months' - ph.sold_date::timestamp)))
+                        LIMIT 1) as price_6m,
+                        (SELECT ph.price FROM pf_graded_cards_price_history ph 
+                        WHERE ph.cardid = cp.cardid AND ph.variant = cp.variant AND ph.grade = cp.grade
+                        AND ph.sold_date::timestamp <= cp.latest_date - INTERVAL '1 year' AND ph.price IS NOT NULL
+                        ORDER BY ABS(EXTRACT(EPOCH FROM (cp.latest_date - INTERVAL '1 year' - ph.sold_date::timestamp)))
+                        LIMIT 1) as price_1y
+                    FROM current_prices cp
+                ),
+                
+                inserted AS (
+                    INSERT INTO pfanalysis_staging_graded_price_changes_daily (
+                        cardid, variant, grade, current_price, previous_price, percentage_change,
+                        latest_update_date, previous_update_date,
+                        previous_price_1w, price_change_1w, percentage_change_1w,
+                        previous_price_1m, price_change_1m, percentage_change_1m,
+                        previous_price_3m, price_change_3m, percentage_change_3m,
+                        previous_price_6m, price_change_6m, percentage_change_6m,
+                        previous_price_1y, price_change_1y, percentage_change_1y
                     )
                     SELECT 
-                        t.cardid, t.variant, t.grade,
-                        AVG(t.price) as price,  -- Average of all sales on latest date
-                        MAX(t.sold_date) as sold_date
-                    FROM pf_graded_cards_price_history t
-                    JOIN latest_dates_per_card ld 
-                        ON t.cardid = ld.cardid 
-                        AND t.variant = ld.variant 
-                        AND t.grade = ld.grade
-                        AND t.sold_date::date = ld.latest_date
-                    GROUP BY t.cardid, t.variant, t.grade
-            ),
-            -- Window-based prices (preferred method)
-            window_interval_prices AS (
-                SELECT 
-                    t.cardid,
-                    t.variant,
-                    t.grade,
-                    interval_type,
-                    AVG(ph.price) as interval_price
-                FROM current_prices t
-                CROSS JOIN (VALUES 
-                    ('1w', INTERVAL '7 days', INTERVAL '3 days'),
-                    ('1m', INTERVAL '1 month', INTERVAL '5 days'),
-                    ('3m', INTERVAL '3 months', INTERVAL '10 days'),
-                    ('6m', INTERVAL '6 months', INTERVAL '15 days'),
-                    ('1y', INTERVAL '1 year', INTERVAL '30 days')
-                ) as intervals(interval_type, target_interval, tolerance_window)
-                LEFT JOIN pf_graded_cards_price_history ph
-                    ON t.cardid = ph.cardid
-                    AND t.variant = ph.variant
-                    AND t.grade = ph.grade
-                    AND ph.sold_date::date <= t.sold_date::date - (target_interval - tolerance_window)
-                    AND ph.sold_date::date >= t.sold_date::date - (target_interval + tolerance_window)
-                WHERE ph.price IS NOT NULL
-                GROUP BY t.cardid, t.variant, t.grade, interval_type
-            ),
-            -- Fallback prices (last known price before target date)
-            fallback_interval_prices AS (
-                SELECT DISTINCT ON (t.cardid, t.variant, t.grade, interval_type)
-                    t.cardid,
-                    t.variant,
-                    t.grade,
-                    interval_type,
-                    ph.price as fallback_price
-                FROM current_prices t
-                CROSS JOIN (VALUES 
-                    ('1w', INTERVAL '7 days'),
-                    ('1m', INTERVAL '1 month'),
-                    ('3m', INTERVAL '3 months'),
-                    ('6m', INTERVAL '6 months'),
-                    ('1y', INTERVAL '1 year')
-                ) as intervals(interval_type, target_interval)
-                LEFT JOIN pf_graded_cards_price_history ph
-                    ON t.cardid = ph.cardid
-                    AND t.variant = ph.variant
-                    AND t.grade = ph.grade
-                    AND ph.sold_date::date <= t.sold_date::date - target_interval
-                WHERE ph.price IS NOT NULL
-                ORDER BY t.cardid, t.variant, t.grade, interval_type, ph.sold_date DESC
-            ),
-            -- Combined interval prices with fallback logic
-            final_interval_prices AS (
-                SELECT 
-                    COALESCE(w.cardid, f.cardid) as cardid,
-                    COALESCE(w.variant, f.variant) as variant,
-                    COALESCE(w.grade, f.grade) as grade,
-                    COALESCE(w.interval_type, f.interval_type) as interval_type,
-                    COALESCE(w.interval_price, f.fallback_price) as final_price,
-                    CASE 
-                        WHEN w.interval_price IS NOT NULL THEN 'WINDOW'
-                        WHEN f.fallback_price IS NOT NULL THEN 'FALLBACK'
-                        ELSE 'NO_DATA'
-                    END as price_source
-                FROM window_interval_prices w
-                FULL OUTER JOIN fallback_interval_prices f
-                    ON w.cardid = f.cardid 
-                    AND w.variant = f.variant 
-                    AND w.grade = f.grade 
-                    AND w.interval_type = f.interval_type
-            ),
-            -- Window-based previous day prices
-            window_previous_prices AS (
-                SELECT 
-                    t.cardid,
-                    t.variant,
-                    t.grade,
-                    AVG(ph.price) as previous_price
-                FROM current_prices t
-                LEFT JOIN pf_graded_cards_price_history ph
-                    ON t.cardid = ph.cardid
-                    AND t.variant = ph.variant
-                    AND t.grade = ph.grade
-                    AND ph.sold_date::date < t.sold_date::date
-                    AND ph.sold_date::date >= t.sold_date::date - INTERVAL '7 days'
-                WHERE ph.price IS NOT NULL
-                GROUP BY t.cardid, t.variant, t.grade
-            ),
-            -- Fallback previous day prices
-            fallback_previous_prices AS (
-                SELECT DISTINCT ON (t.cardid, t.variant, t.grade)
-                    t.cardid,
-                    t.variant,
-                    t.grade,
-                    ph.price as fallback_previous_price
-                FROM current_prices t
-                LEFT JOIN pf_graded_cards_price_history ph
-                    ON t.cardid = ph.cardid
-                    AND t.variant = ph.variant
-                    AND t.grade = ph.grade
-                    AND ph.sold_date::date < t.sold_date::date
-                WHERE ph.price IS NOT NULL
-                ORDER BY t.cardid, t.variant, t.grade, ph.sold_date DESC
-            ),
-            -- Combined previous prices
-            final_previous_prices AS (
-                SELECT 
-                    COALESCE(w.cardid, f.cardid) as cardid,
-                    COALESCE(w.variant, f.variant) as variant,
-                    COALESCE(w.grade, f.grade) as grade,
-                    COALESCE(w.previous_price, f.fallback_previous_price) as final_previous_price,
-                    CASE 
-                        WHEN w.previous_price IS NOT NULL THEN 'WINDOW'
-                        WHEN f.fallback_previous_price IS NOT NULL THEN 'FALLBACK'
-                        ELSE 'NO_DATA'
-                    END as previous_price_source
-                FROM window_previous_prices w
-                FULL OUTER JOIN fallback_previous_prices f
-                    ON w.cardid = f.cardid 
-                    AND w.variant = f.variant 
-                    AND w.grade = f.grade
-            ),
-            inserted AS (
-                INSERT INTO pfanalysis_staging_graded_price_changes_daily
-                SELECT 
-                    -- Primary key columns
-                    t.cardid,
-                    t.variant,
-                    t.grade,
-                    t.price as current_price,
-                    fpp.final_previous_price as previous_price,
-                    ((t.price - fpp.final_previous_price) / NULLIF(fpp.final_previous_price, 0)) * 100 as percentage_change,
-                    t.sold_date::date as latest_update_date,
-                    t.sold_date::date - INTERVAL '1 day' as previous_update_date, -- Simplified since we don't know exact date
-                    -- Weekly changes
-                    p1w.final_price as previous_price_1w,
-                    (t.price - p1w.final_price) as price_change_1w,
-                    ((t.price - p1w.final_price) / NULLIF(p1w.final_price, 0)) * 100 as percentage_change_1w,
-                    -- Monthly changes  
-                    p1m.final_price as previous_price_1m,
-                    (t.price - p1m.final_price) as price_change_1m,
-                    ((t.price - p1m.final_price) / NULLIF(p1m.final_price, 0)) * 100 as percentage_change_1m,
-                    -- 3 Month changes
-                    p3m.final_price as previous_price_3m,
-                    (t.price - p3m.final_price) as price_change_3m,
-                    ((t.price - p3m.final_price) / NULLIF(p3m.final_price, 0)) * 100 as percentage_change_3m,
-                    -- 6 Month changes
-                    p6m.final_price as previous_price_6m,
-                    (t.price - p6m.final_price) as price_change_6m,
-                    ((t.price - p6m.final_price) / NULLIF(p6m.final_price, 0)) * 100 as percentage_change_6m,
-                    -- Yearly changes
-                    p1y.final_price as previous_price_1y,
-                    (t.price - p1y.final_price) as price_change_1y,
-                    ((t.price - p1y.final_price) / NULLIF(p1y.final_price, 0)) * 100 as percentage_change_1y,
-                    -- Data source tracking (if you add these columns)
-                    fpp.previous_price_source as price_source_previous,
-                    p1w.price_source as price_source_1w,
-                    p1m.price_source as price_source_1m,
-                    p3m.price_source as price_source_3m,
-                    p6m.price_source as price_source_6m,
-                    p1y.price_source as price_source_1y
-                FROM current_prices t
-                LEFT JOIN final_previous_prices fpp
-                    ON t.cardid = fpp.cardid 
-                    AND t.variant = fpp.variant
-                    AND t.grade = fpp.grade
-                LEFT JOIN final_interval_prices p1w
-                    ON t.cardid = p1w.cardid 
-                    AND t.variant = p1w.variant 
-                    AND t.grade = p1w.grade
-                    AND p1w.interval_type = '1w'
-                LEFT JOIN final_interval_prices p1m
-                    ON t.cardid = p1m.cardid 
-                    AND t.variant = p1m.variant 
-                    AND t.grade = p1m.grade
-                    AND p1m.interval_type = '1m'
-                LEFT JOIN final_interval_prices p3m
-                    ON t.cardid = p3m.cardid 
-                    AND t.variant = p3m.variant 
-                    AND t.grade = p3m.grade
-                    AND p3m.interval_type = '3m'
-                LEFT JOIN final_interval_prices p6m
-                    ON t.cardid = p6m.cardid 
-                    AND t.variant = p6m.variant 
-                    AND t.grade = p6m.grade
-                    AND p6m.interval_type = '6m'
-                LEFT JOIN final_interval_prices p1y
-                    ON t.cardid = p1y.cardid 
-                    AND t.variant = p1y.variant 
-                    AND t.grade = p1y.grade
-                    AND p1y.interval_type = '1y'
-                RETURNING 1
-            )
-            SELECT COUNT(*) as count FROM inserted
+                        cp.cardid, cp.variant, cp.grade, cp.current_price, pdp.previous_price,
+                        CASE WHEN pdp.previous_price IS NOT NULL AND pdp.previous_price > 0 
+                            THEN ((cp.current_price - pdp.previous_price) / pdp.previous_price) * 100
+                            ELSE NULL END as percentage_change,
+                        cp.latest_date::date, pdp.previous_date::date,
+                        
+                        ip.price_1w,
+                        CASE WHEN ip.price_1w IS NOT NULL THEN cp.current_price - ip.price_1w ELSE NULL END,
+                        CASE WHEN ip.price_1w IS NOT NULL AND ip.price_1w > 0 
+                            THEN ((cp.current_price - ip.price_1w) / ip.price_1w) * 100 ELSE NULL END,
+                            
+                        ip.price_1m,
+                        CASE WHEN ip.price_1m IS NOT NULL THEN cp.current_price - ip.price_1m ELSE NULL END,
+                        CASE WHEN ip.price_1m IS NOT NULL AND ip.price_1m > 0 
+                            THEN ((cp.current_price - ip.price_1m) / ip.price_1m) * 100 ELSE NULL END,
+                            
+                        ip.price_3m,
+                        CASE WHEN ip.price_3m IS NOT NULL THEN cp.current_price - ip.price_3m ELSE NULL END,
+                        CASE WHEN ip.price_3m IS NOT NULL AND ip.price_3m > 0 
+                            THEN ((cp.current_price - ip.price_3m) / ip.price_3m) * 100 ELSE NULL END,
+                            
+                        ip.price_6m,
+                        CASE WHEN ip.price_6m IS NOT NULL THEN cp.current_price - ip.price_6m ELSE NULL END,
+                        CASE WHEN ip.price_6m IS NOT NULL AND ip.price_6m > 0 
+                            THEN ((cp.current_price - ip.price_6m) / ip.price_6m) * 100 ELSE NULL END,
+                            
+                        ip.price_1y,
+                        CASE WHEN ip.price_1y IS NOT NULL THEN cp.current_price - ip.price_1y ELSE NULL END,
+                        CASE WHEN ip.price_1y IS NOT NULL AND ip.price_1y > 0 
+                            THEN ((cp.current_price - ip.price_1y) / ip.price_1y) * 100 ELSE NULL END
+                            
+                    FROM current_prices cp
+                    LEFT JOIN previous_day_prices pdp ON cp.cardid = pdp.cardid AND cp.variant = pdp.variant AND cp.grade = pdp.grade
+                    LEFT JOIN interval_prices ip ON cp.cardid = ip.cardid AND cp.variant = ip.variant AND cp.grade = ip.grade
+                    RETURNING 1
+                )
+                SELECT COUNT(*) as count FROM inserted
         `, [setid]);
 
         // Update status to COMPLETED with record count - FIX: Use correct table name
