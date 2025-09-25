@@ -75,7 +75,7 @@ async function main() {
   });
 
   /** RUN COLLECTION EVERYDAY AT 1AM **/
-  const dailyJob = schedule.scheduleJob('1 0 * * *', async function(fireDate) {
+  const dailyJob = schedule.scheduleJob('35 1 * * *', async function(fireDate) {
     try {
       logger.info(` --- SYSTEM CURRENCY RATE COLLECTION STARTED ---`);
       logger.info('This job was supposed to run at ' + fireDate + ', but actually ran at ' + new Date());
