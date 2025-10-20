@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TCG Sealed Products Filter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            padding: 30px;
+        }
+
+        .input-section {
+            margin-bottom: 30px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .url-input {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .url-input:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .fetch-btn {
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 120px;
+        }
+
+        .fetch-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(16, 185, 129, 0.3);
+        }
+
+        .fetch-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #6b7280;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f4f6;
+            border-radius: 50%;
+            border-top-color: #4f46e5;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .controls {
+            display: none;
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .controls.show {
+            display: block;
+        }
+
+        .controls-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .control-group {
+            display: flex;
+            gap: 15px;
+        }
+
+        .control-btn {
+            padding: 10px 20px;
+            border: 2px solid #4f46e5;
+            background: white;
+            color: #4f46e5;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .control-btn:hover {
+            background: #4f46e5;
+            color: white;
+        }
+
+        .copy-btn {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .copy-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(245, 158, 11, 0.3);
+        }
+
+        .create-body-btn {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        }
+
+        .create-body-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(139, 92, 246, 0.3);
+        }
+
+        .results {
+            display: none;
+        }
+
+        .results.show {
+            display: block;
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .results-count {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .product-list {
+            max-height: 600px;
+            overflow-y: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            background: #fafafa;
+        }
+
+        .product-item {
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e5e7eb;
+            transition: background-color 0.2s ease;
+        }
+
+        .product-item:last-child {
+            border-bottom: none;
+        }
+
+        .product-item:hover {
+            background: #f1f5f9;
+        }
+
+        .product-checkbox {
+            width: 18px;
+            height: 18px;
+            margin-right: 15px;
+            cursor: pointer;
+            accent-color: #4f46e5;
+        }
+
+        .product-info {
+            flex: 1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .product-name {
+            font-weight: 500;
+            color: #374151;
+            flex: 1;
+        }
+
+        .product-id {
+            font-family: 'Monaco', 'Menlo', monospace;
+            background: #e5e7eb;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #6b7280;
+            margin-left: 15px;
+        }
+
+        .error {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .error.show {
+            display: block;
+        }
+
+        .success {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            color: #166534;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .success.show {
+            display: block;
+        }
+
+        .example-url {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+
+        .example-url strong {
+            color: #4f46e5;
+        }
+
+        .example-url code {
+            background: #e5e7eb;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎴 TCG Sealed Products Filter</h1>
+            <p>Extract sealed products (packs, boxes, blisters) from TCGPlayer API data</p>
+        </div>
+
+        <div class="main-content">
+            <div class="input-section">
+                <div class="input-group">
+                    <input 
+                        type="text" 
+                        class="url-input" 
+                        id="apiUrl" 
+                        placeholder="Enter TCGPlayer API URL..."
+                        value="https://tcgcsv.com/tcgplayer/3/22873/products"
+                    >
+                    <button class="fetch-btn" id="fetchBtn">Fetch Data</button>
+                </div>
+                
+                <div class="input-group">
+                    <input 
+                        type="text" 
+                        class="url-input" 
+                        id="setId" 
+                        placeholder="Enter Set ID (e.g., sv3pt5)..."
+                    >
+                </div>
+                
+                <div class="example-url">
+                    <strong>Example URL:</strong> <code>https://tcgcsv.com/tcgplayer/3/22873/products</code><br>
+                    <small>Replace the numbers with your desired category and group IDs</small>
+                </div>
+            </div>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                Fetching and analyzing data...
+            </div>
+
+            <div class="error" id="error"></div>
+            <div class="success" id="success"></div>
+
+            <div class="controls" id="controls">
+                <div class="controls-row">
+                    <div class="control-group">
+                        <button class="control-btn" id="selectAll">Select All</button>
+                        <button class="control-btn" id="selectNone">Select None</button>
+                    </div>
+                    <div class="control-group">
+                        <button class="copy-btn" id="copyBtn">📋 Copy Product IDs</button>
+                        <button class="copy-btn create-body-btn" id="createBodyBtn">🔧 Create Body</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="results" id="results">
+                <div class="results-header">
+                    <div class="results-count" id="resultsCount"></div>
+                </div>
+                <div class="product-list" id="productList"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class TCGSealedProductsFilter {
+            constructor() {
+                this.sealedProducts = [];
+                this.sealedKeywords = [
+                    'pack', 'box', 'case', 'bundle', 'blister', 'elite trainer', 
+                    'build', 'battle', 'booster', 'collection', 'stadium', 
+                    'display', 'code card', 'sleeved'
+                ];
+                this.initializeEventListeners();
+            }
+
+            initializeEventListeners() {
+                document.getElementById('fetchBtn').addEventListener('click', () => this.fetchData());
+                document.getElementById('selectAll').addEventListener('click', () => this.selectAll());
+                document.getElementById('selectNone').addEventListener('click', () => this.selectNone());
+                document.getElementById('copyBtn').addEventListener('click', () => this.copySelectedIds());
+                document.getElementById('createBodyBtn').addEventListener('click', () => this.createBody());
+                
+                // Allow Enter key to fetch data
+                document.getElementById('apiUrl').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.fetchData();
+                });
+            }
+
+            async fetchData() {
+                const url = document.getElementById('apiUrl').value.trim();
+                
+                if (!url) {
+                    this.showError('Please enter a valid API URL');
+                    return;
+                }
+
+                this.showLoading(true);
+                this.hideError();
+                this.hideSuccess();
+                this.hideResults();
+
+                try {
+                    const response = await fetch(url);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
+                    const data = await response.json();
+                    
+                    if (!data.results || !Array.isArray(data.results)) {
+                        throw new Error('Invalid API response format');
+                    }
+
+                    this.processSealedProducts(data.results);
+                    this.showLoading(false);
+                    
+                    if (this.sealedProducts.length === 0) {
+                        this.showError('No sealed products found in the data');
+                    } else {
+                        this.displayResults();
+                        this.showSuccess(`Found ${this.sealedProducts.length} sealed products!`);
+                    }
+
+                } catch (error) {
+                    this.showLoading(false);
+                    this.showError(`Error fetching data: ${error.message}`);
+                }
+            }
+
+            processSealedProducts(products) {
+                this.sealedProducts = products.filter(product => {
+                    // Handle null/undefined name and cleanName values
+                    const name = (product.name || '').toLowerCase();
+                    const cleanName = (product.cleanName || '').toLowerCase();
+                    
+                    return this.sealedKeywords.some(keyword => 
+                        name.includes(keyword) || cleanName.includes(keyword)
+                    );
+                }).map(product => ({
+                    ...product,
+                    selected: true // Check all by default
+                }));
+
+                // Sort by product ID for consistent ordering
+                this.sealedProducts.sort((a, b) => a.productId - b.productId);
+            }
+
+            displayResults() {
+                const productList = document.getElementById('productList');
+                const resultsCount = document.getElementById('resultsCount');
+                
+                resultsCount.textContent = `Found ${this.sealedProducts.length} sealed products`;
+                
+                productList.innerHTML = this.sealedProducts.map((product, index) => `
+                    <div class="product-item">
+                        <input 
+                            type="checkbox" 
+                            class="product-checkbox" 
+                            id="product-${index}"
+                            ${product.selected ? 'checked' : ''}
+                            onchange="tcgFilter.toggleProduct(${index})"
+                        >
+                        <div class="product-info">
+                            <div class="product-name">${this.escapeHtml(product.name)}</div>
+                            <div class="product-id">${product.productId}</div>
+                        </div>
+                    </div>
+                `).join('');
+
+                this.showResults();
+                this.showControls();
+            }
+
+            toggleProduct(index) {
+                this.sealedProducts[index].selected = !this.sealedProducts[index].selected;
+            }
+
+            selectAll() {
+                this.sealedProducts.forEach(product => product.selected = true);
+                document.querySelectorAll('.product-checkbox').forEach(checkbox => {
+                    checkbox.checked = true;
+                });
+            }
+
+            selectNone() {
+                this.sealedProducts.forEach(product => product.selected = false);
+                document.querySelectorAll('.product-checkbox').forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+            }
+
+            copySelectedIds() {
+                const selectedIds = this.sealedProducts
+                    .filter(product => product.selected)
+                    .map(product => product.productId);
+
+                if (selectedIds.length === 0) {
+                    this.showError('No products selected');
+                    return;
+                }
+
+                const formattedOutput = `"productIds": [${selectedIds.join(', ')}]`;
+                
+                this.copyToClipboard(formattedOutput, `Copied ${selectedIds.length} product IDs to clipboard!`);
+            }
+
+            createBody() {
+                const setId = document.getElementById('setId').value.trim();
+                const apiUrl = document.getElementById('apiUrl').value.trim();
+                
+                if (!setId) {
+                    this.showError('Please enter a Set ID');
+                    return;
+                }
+
+                const selectedIds = this.sealedProducts
+                    .filter(product => product.selected)
+                    .map(product => product.productId);
+
+                if (selectedIds.length === 0) {
+                    this.showError('No products selected');
+                    return;
+                }
+
+                const bodyObject = {
+                    "setId": setId,
+                    "productIds": selectedIds,
+                    "TCGCSV_URL": apiUrl
+                };
+
+                const formattedOutput = JSON.stringify(bodyObject, null, 4);
+                
+                this.copyToClipboard(formattedOutput, `Created and copied body with ${selectedIds.length} products!`);
+            }
+
+            copyToClipboard(text, successMessage) {
+                navigator.clipboard.writeText(text).then(() => {
+                    this.showSuccess(successMessage);
+                }).catch(err => {
+                    // Fallback for older browsers
+                    const textArea = document.createElement('textarea');
+                    textArea.value = text;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    this.showSuccess(successMessage);
+                });
+            }
+
+            // UI Helper Methods
+            showLoading(show) {
+                const loading = document.getElementById('loading');
+                const fetchBtn = document.getElementById('fetchBtn');
+                
+                if (show) {
+                    loading.classList.add('show');
+                    fetchBtn.disabled = true;
+                    fetchBtn.textContent = 'Loading...';
+                } else {
+                    loading.classList.remove('show');
+                    fetchBtn.disabled = false;
+                    fetchBtn.textContent = 'Fetch Data';
+                }
+            }
+
+            showError(message) {
+                const error = document.getElementById('error');
+                error.textContent = message;
+                error.classList.add('show');
+                setTimeout(() => error.classList.remove('show'), 5000);
+            }
+
+            hideError() {
+                document.getElementById('error').classList.remove('show');
+            }
+
+            showSuccess(message) {
+                const success = document.getElementById('success');
+                success.textContent = message;
+                success.classList.add('show');
+                setTimeout(() => success.classList.remove('show'), 3000);
+            }
+
+            hideSuccess() {
+                document.getElementById('success').classList.remove('show');
+            }
+
+            showResults() {
+                document.getElementById('results').classList.add('show');
+            }
+
+            hideResults() {
+                document.getElementById('results').classList.remove('show');
+            }
+
+            showControls() {
+                document.getElementById('controls').classList.add('show');
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+        }
+
+        // Initialize the application
+        const tcgFilter = new TCGSealedProductsFilter();
+    </script>
+</body>
+</html>

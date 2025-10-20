@@ -41,6 +41,7 @@ import CollectSealedAnalysis from "./collect/collectSealedAnalysis";
 import collectSealedImages from "./collect/collectSealedImages";
 import CollectGradedAnalysis from "./collect/collectGradedAnalysis";
 import massCardEntry from "./collect/massCardEntry";
+import CollectCardsJSON from "./collect/collectCardsJSON";
 
 const pgp = require('pg-promise')();
 const db = pgp(DBConfig());
@@ -69,9 +70,9 @@ async function cli() {
                 state = await CollectPrice(db, "", "MANUAL")
                 logger.info(`Finished collectPrice results: ${JSON.stringify(state)}`)
                 break;
-            case 'collectCards':
-                logger.info(`Starting collectCards function`)
-                state = await CollectCards(db, meta, image, "", "MANUAL")
+            case 'collectCardsJSON':
+                logger.info(`Starting CollectCardsJSON function`)
+                state = await CollectCardsJSON(db, meta, image, "me1", "MANUAL", "massentry/cards_json/me1.json")
                 logger.info(`Finished collectCards results: ${JSON.stringify(state)}`)
                 break;
             case 'collectAnalysis':
